@@ -1,0 +1,8 @@
+node_modules/
+.env
+.env.*
+!.env.example
+*.log
+CYCLOPS-Project.zip
+node.js
+Untitled-1 U.py

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Sign in | CYCLOPS</title>
+  <style>
+    :root { color-scheme: dark; --bg: #081126; --panel: #121d3b; --line: #344a83; --text: #edf2ff; --muted: #aebbe3; --accent: #7657e8; --blue: #3da9ff; }
+    * { box-sizing: border-box; }
+    body { min-height: 100vh; margin: 0; display: grid; place-items: center; padding: 20px; background: radial-gradient(circle at 88% 4%, rgba(92, 64, 190, .45), transparent 31%), radial-gradient(circle at 8% 70%, rgba(27, 124, 220, .2), transparent 36%), var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; }
+    main { width: min(100%, 390px); border: 1px solid var(--line); border-radius: 10px; padding: 28px; background: rgba(18, 29, 59, .94); box-shadow: 0 18px 55px rgba(3, 7, 24, .35); }
+    h1 { margin: 0; font-size: 1.65rem; letter-spacing: .04em; }
+    p { color: var(--muted); margin: 6px 0 22px; }
+    label { display: block; margin: 14px 0; font-weight: 650; }
+    input { display: block; width: 100%; margin-top: 6px; border: 1px solid var(--line); border-radius: 7px; padding: 11px 12px; background: #0b1530; color: var(--text); font: inherit; }
+    input:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+    button { width: 100%; margin-top: 8px; border: 1px solid var(--accent); border-radius: 7px; padding: 10px 14px; background: var(--accent); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+    button:disabled { opacity: .65; cursor: wait; }
+    #message { min-height: 1.5em; margin: 12px 0 0; color: #ff9b9b; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>CYCLOPS</h1>
+    <p>Sign in to open the inspection console.</p>
+    <form id="login-form">
+      <label>Username<input name="username" autocomplete="username" required maxlength="256"></label>
+      <label>Password<input name="password" type="password" autocomplete="current-password" required maxlength="1024"></label>
+      <button type="submit">Sign in</button>
+      <div id="message" role="alert" aria-live="polite"></div>
+    </form>
+  </main>
+  <script>
+    document.getElementById('login-form').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const button = form.querySelector('button');
+      const message = document.getElementById('message');
+      button.disabled = true;
+      message.textContent = '';
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: form.username.value, password: form.password.value })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Sign-in failed.');
+        window.location.replace('/');
+      } catch (error) {
+        message.textContent = error.message || 'Could not reach the sign-in service.';
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

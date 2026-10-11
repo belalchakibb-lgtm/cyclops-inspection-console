@@ -1,0 +1,2 @@
+cd "C:\Users\HP G6\Desktop\CYCLOPS"
+node server.mjs

@@ -1,0 +1,13 @@
+{
+  "name": "cyclops-inspection-console",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "check": "node --check server.mjs && node --check cyclops-procs.js && node --check cyclops3D.js && node --check cyclops-quiz.js"
+  },
+  "engines": {
+    "node": ">=22 <25"
+  }
+}

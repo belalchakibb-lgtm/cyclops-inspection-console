@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CYCLOPS Inspection Console</title>
+  <style>
+    :root { color-scheme: dark; --bg: #081126; --panel: #121d3b; --line: #344a83; --text: #edf2ff; --muted: #aebbe3; --accent: #7657e8; --blue: #3da9ff; --violet: #9d65ff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; background: radial-gradient(circle at 88% 4%, rgba(92, 64, 190, .45), transparent 31%), radial-gradient(circle at 8% 70%, rgba(27, 124, 220, .2), transparent 36%), var(--bg); color: var(--text); font: 15px/1.5 system-ui, sans-serif; }
+    main { width: min(1120px, calc(100% - 32px)); margin: 0 auto; padding: 28px 0 48px; }
+    header { display: flex; justify-content: space-between; gap: 20px; align-items: end; margin-bottom: 22px; }
+    .head-actions, .search { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .lang-switch { position: relative; display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; font-weight: 800; letter-spacing: .08em; cursor: pointer; }
+    .lang-switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; z-index: 2; }
+    .lang-track { position: relative; width: 48px; height: 25px; border: 1px solid var(--line); border-radius: 999px; background: #172753; box-shadow: inset 0 0 10px rgba(0, 0, 0, .25); }
+    .lang-track::after { content: ''; position: absolute; top: 3px; left: 3px; width: 17px; height: 17px; border-radius: 50%; background: var(--blue); box-shadow: 0 0 10px rgba(61, 169, 255, .8); transition: transform .2s ease, background .2s ease; }
+    .lang-switch input:checked + .lang-track::after { transform: translateX(23px); background: var(--violet); box-shadow: 0 0 10px rgba(157, 101, 255, .9); }
+    .lang-switch:focus-within .lang-track { outline: 2px solid var(--blue); outline-offset: 2px; }
+    .search { margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .search input[type="search"] { flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--text); padding: 10px 12px; font: inherit; }
+    .search input[type="search"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .search.dragover { outline: 2px dashed rgba(61, 169, 255, .8); outline-offset: 4px; border-radius: 10px; }
+    .photo-btn { border: 1px solid var(--line); border-radius: 7px; background: rgba(61, 169, 255, .12); color: var(--text); padding: 10px 12px; font: inherit; cursor: pointer; }
+    .photo-btn:hover { background: rgba(61, 169, 255, .22); }
+    .photo-result { margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: rgba(15, 24, 46, .85); color: var(--text); }
+    .photo-result strong { display: block; margin-bottom: 4px; }
+    .photo-result .row { margin: 4px 0; color: var(--muted); }
+    .photo-result .confidence { color: #8ef0c1; }
+    h1, h2, p { margin-top: 0; } h1 { margin-bottom: 4px; letter-spacing: .06em; font-size: clamp(1.8rem, 5vw, 2.8rem); } h2 { font-size: 1.2rem; }
+    .brand { display: inline-flex; align-items: center; color: #fff; text-shadow: 0 0 22px rgba(89, 163, 255, .35); }
+    .wolf-o { position: relative; display: inline-block; width: .78em; height: .48em; margin: 0 .04em; border: .09em solid var(--blue); border-radius: 70% 12%; transform: rotate(-18deg); background: linear-gradient(135deg, rgba(61, 169, 255, .22), rgba(157, 101, 255, .34)); box-shadow: 0 0 12px rgba(61, 169, 255, .7), inset 0 0 9px rgba(157, 101, 255, .75); }
+    .wolf-o::before { content: ''; position: absolute; left: 41%; top: 24%; width: .22em; height: .22em; border-radius: 50%; background: #d9f5ff; box-shadow: 0 0 0 .07em var(--violet), 0 0 10px 2px var(--blue); }
+    .wolf-o::after { content: ''; position: absolute; left: 5%; right: 5%; top: 47%; height: .07em; background: rgba(210, 228, 255, .8); transform: rotate(18deg); }
+    .brand-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .mut { color: var(--muted); }
+    #ptab { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+    button { border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: inherit; cursor: pointer; padding: 8px 12px; font: inherit; }
+    button:hover, button.on { background: var(--accent); border-color: var(--accent); color: white; }
+    #pbody { background: linear-gradient(145deg, rgba(18, 29, 59, .94), rgba(13, 20, 47, .9)); border: 1px solid var(--line); border-radius: 10px; padding: 18px; box-shadow: 0 18px 55px rgba(3, 7, 24, .35); }
+    .equipment-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 10px; }
+    .equipment-card { border: 1px solid var(--line); border-radius: 8px; background: rgba(16, 25, 35, .7); padding: 12px; }
+    .equipment-card strong { display: block; color: #fff; margin-bottom: 5px; }
+    .equipment-card span { color: var(--muted); }
+    .equipment-card { cursor: pointer; }
+    .equipment-card:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+    .hse-list { margin: 10px 0 0; padding-left: 20px; }
+    details { border-top: 1px solid var(--line); padding: 12px 0; } details:first-child { border-top: 0; }
+    summary { cursor: pointer; font-weight: 700; } li { margin: 6px 0; }
+    #quiz-view { background: linear-gradient(145deg, rgba(18, 29, 59, .94), rgba(13, 20, 47, .9)); border: 1px solid var(--line); border-radius: 10px; padding: 18px; box-shadow: 0 18px 55px rgba(3, 7, 24, .35); }
+    .quiz-page { width: min(820px, 100%); margin: 0 auto; }
+    .quiz-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+    .quiz-top h2 { margin: 0; }
+    .quiz-fieldset { border: 0; border-top: 1px solid var(--line); margin: 18px 0 0; padding: 14px 0 0; }
+    .quiz-fieldset legend { padding: 0 8px 0 0; font-weight: 700; }
+    .quiz-methods { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+    .quiz-method { display: flex; align-items: center; gap: 10px; min-height: 56px; border: 1px solid var(--line); border-radius: 7px; background: rgba(16, 25, 35, .7); padding: 9px 11px; cursor: pointer; }
+    .quiz-method input { width: 18px; height: 18px; accent-color: var(--blue); flex: 0 0 auto; }
+    .quiz-method span { display: grid; line-height: 1.25; }
+    .quiz-method span span { color: var(--muted); font-size: 13px; }
+    .quiz-method:has(input:checked) { border-color: var(--blue); background: rgba(40, 93, 139, .3); }
+    .quiz-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .quiz-levels { display: flex; flex-wrap: wrap; gap: 7px; }
+    .quiz-levels label { position: relative; cursor: pointer; }
+    .quiz-levels input { position: absolute; opacity: 0; }
+    .quiz-levels span { display: block; border: 1px solid var(--line); border-radius: 7px; padding: 8px 14px; }
+    .quiz-levels input:checked + span { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .quiz-levels input:focus-visible + span { outline: 2px solid var(--blue); outline-offset: 2px; }
+    .quiz-error { min-height: 1.5em; color: #ff9b9b; margin: 8px 0 0; }
+    .quiz-primary { background: var(--accent); border-color: var(--accent); color: #fff; margin-top: 12px; }
+    .quiz-choices { display: grid; gap: 8px; margin-top: 16px; }
+    .quiz-choice { min-height: 48px; text-align: left; }
+    .quiz-choice.correct { border-color: #42c991; background: rgba(28, 106, 78, .45); }
+    .quiz-choice.incorrect { border-color: #e66b78; background: rgba(130, 47, 61, .4); }
+    .quiz-feedback { margin: 14px 0 4px; }
+    .quiz-feedback.is-correct { color: #7de2b5; }
+    .quiz-feedback.is-incorrect { color: #ffadb4; }
+    .quiz-ai-answer { border-left: 2px solid var(--blue); padding: 8px 12px; color: var(--muted); white-space: pre-wrap; }
+    .quiz-score { color: #fff; font-size: 2rem; font-weight: 800; margin: 12px 0 0; }
+    .quiz-review { border-top: 1px solid var(--line); margin-top: 18px; padding-top: 12px; }
+    .quiz-review li { padding: 6px 0; overflow-wrap: anywhere; }
+    @media (max-width: 640px) { main { width: min(100% - 20px, 1120px); padding-top: 18px; } header { display: block; } #pbody { padding: 12px; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header><div><h1 class="brand" aria-label="CYCLOPS">CYCL<span class="wolf-o" aria-hidden="true"></span><span class="brand-label">O</span>PS</h1><p class="mut" id="subtitle">AQCS inspection procedures and method visualisation</p></div><div class="head-actions"><button id="back" type="button">← Back</button><button id="quiz-open" type="button">Quiz</button><button id="logout" type="button" hidden>Sign out</button><label class="lang-switch" aria-label="Switch language between French and English"><span>FR</span><input id="lang" type="checkbox" checked><span class="lang-track"></span><span>EN</span></label></div></header>
+    <div class="search" id="photo-dropzone">
+      <input id="procedure-search" type="search" placeholder="Search methods, equipment, steps, codes or hazards" autocomplete="off" aria-label="Search methods, equipment, steps, codes or hazards">
+      <button id="photo-search" class="photo-btn" type="button" title="Search by photo name">Photo</button>
+      <input id="photo-search-input" type="file" accept="image/*" hidden>
+      <button id="clear-search" type="button" title="Clear search">Clear</button>
+    </div>
+    <div id="photo-result" class="photo-result" hidden></div>
+    <nav id="ptab" aria-label="Inspection methods"></nav>
+    <section id="prd"><div class="ah"></div><div id="pbody"></div></section>
+    <section id="quiz-view" hidden aria-live="polite"></section>
+  </main>
+  <script>var lang = 'en';</script>
+  <script src="./cyclops-procs.js"></script>
+  <script src="./cyclops3D.js"></script>
+  <script src="./cyclops-quiz.js"></script>
+  <script>
+    (function () {
+      const tabs = document.getElementById('ptab');
+      const body = document.getElementById('pbody');
+      const keys = ['PT', 'MT', 'UT', 'RT', 'VT', 'APL', 'APE', 'APVG', 'OTH'];
+      let current = 'PT';
+      const search = document.getElementById('procedure-search');
+      const text = (en, fr) => lang === 'fr' ? fr : en;
+      function syncLabels() {
+        document.documentElement.lang = lang;
+        document.title = text('CYCLOPS Inspection Console', 'CYCLOPS - Console d’inspection');
+        document.getElementById('subtitle').textContent = text('AQCS inspection procedures and method visualisation', 'Procédures d’inspection AQCS et visualisation des méthodes');
+        document.getElementById('back').textContent = text('← Back', '← Retour');
+        document.getElementById('quiz-open').textContent = text('Quiz', 'Quiz');
+        document.getElementById('logout').textContent = text('Sign out', 'Déconnexion');
+        search.placeholder = text('Search methods, equipment, steps, codes or hazards', 'Rechercher une méthode, un équipement, une étape, une norme ou un risque');
+        search.setAttribute('aria-label', search.placeholder);
+        const clear = document.getElementById('clear-search');
+        clear.textContent = text('Clear', 'Effacer');
+        clear.title = text('Clear search', 'Effacer la recherche');
+        document.getElementById('photo-search').textContent = text('Photo', 'Photo');
+        document.getElementById('photo-search').title = text('Search by photo name', 'Recherche par nom de photo');
+        document.querySelector('.lang-switch').setAttribute('aria-label', text('Switch language between French and English', 'Changer la langue entre le français et l’anglais'));
+        document.getElementById('ptab').setAttribute('aria-label', text('Inspection methods', 'Méthodes d’inspection'));
+      }
+      function matches(key, term) {
+        const p = window.CYPROC[key];
+        const equipment = (p.equipment || []).flatMap((item, index) => {
+          const localized = window.CY3 && window.CY3.equipmentText ? window.CY3.equipmentText(key, index, item) : item;
+          return Array.isArray(localized) ? localized.map((value) => String(value)) : [String(localized)];
+        });
+        const searchable = [
+          p.name,
+          p.fr && p.fr.name,
+          ...(p.hse || []),
+          ...(p.codes || []).flatMap((code) => [code[0], code[1]]),
+          ...(p.steps || []).flatMap((step) => [step[0], ...(step[1] || [])]),
+          ...equipment
+        ];
+        return !term || searchable.join(' ').toLowerCase().includes(term.toLowerCase());
+      }
+      function render() {
+        const term = search.value.trim();
+        const visible = keys.filter((key) => matches(key, term));
+        if (!visible.includes(current)) current = visible[0] || 'PT';
+        tabs.innerHTML = visible.map((key) => '<button type="button" data-pm="' + key + '" class="' + (key === current ? 'on' : '') + '">' + key + '</button>').join('') || '<span class="mut">' + text('No matching method', 'Aucune méthode correspondante') + '</span>';
+        const p = window.CYPROC[current];
+        const translated = lang === 'fr' && p.fr ? p.fr : p;
+        const equipment = p.equipment || [];
+        const equipmentHtml = '<details open><summary>' + text('Equipment and operating principle', 'Équipements et principe de fonctionnement') + '</summary><div class="equipment-grid">' + equipment.map((item, index) => { const localized = window.CY3 && window.CY3.equipmentText ? window.CY3.equipmentText(current, index, item) : item; return '<article class="equipment-card" tabindex="0" role="button" data-equipment="' + index + '"><strong>' + localized[0] + '</strong><span>' + localized[1] + '</span></article>'; }).join('') + '</div></details>';
+        const hseHtml = '<details><summary>' + text('HSE procedure to use', 'Consignes de santé et sécurité') + '</summary><ul class="hse-list">' + (translated.hse || p.hse || []).map((item) => '<li>' + item + '</li>').join('') + '</ul></details>';
+        const codes = p.codes.map((item, index) => [item[0], translated.codes && translated.codes[index] || item[1]]);
+        body.innerHTML = '<h2>' + translated.name + '</h2>' + equipmentHtml + hseHtml + translated.steps.map((step) => '<details open><summary>' + step[0] + '</summary><ul>' + step[1].map((item) => '<li>' + item + '</li>').join('') + '</ul></details>').join('') + '<details><summary>' + text('Codes and references', 'Codes et références') + '</summary><ul>' + codes.map((item) => '<li><b>' + item[0] + '</b>: ' + item[1] + '</li>').join('') + '</ul></details>';
+        const active = tabs.querySelector('[data-pm="' + current + '"]');
+        if (active) active.classList.add('on');
+      }
+      tabs.addEventListener('click', (event) => { const button = event.target.closest('[data-pm]'); if (button) { current = button.dataset.pm; render(); } });
+      body.addEventListener('click', (event) => { const card = event.target.closest('[data-equipment]'); if (card) window.CY3 && window.CY3.openEquipment(current, Number(card.dataset.equipment)); });
+      body.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { const card = event.target.closest('[data-equipment]'); if (card) { event.preventDefault(); window.CY3 && window.CY3.openEquipment(current, Number(card.dataset.equipment)); } } });
+      const photoInput = document.getElementById('photo-search-input');
+      const photoSearchButton = document.getElementById('photo-search');
+      const photoDropZone = document.getElementById('photo-dropzone');
+      const photoResult = document.getElementById('photo-result');
+
+      function detectEquipmentFromName(fileName) {
+        const name = (fileName || '').toLowerCase();
+        const profiles = [
+          { keys: ['uv', 'ultraviolet', 'lamp', 'fluorescent'], equipment: 'UV-A lamp', mark: 'Fluorescent penetrant indication' },
+          { keys: ['penetrant', 'resuage', 'dye', 'paint'], equipment: 'Penetrant spray or tank', mark: 'Surface-breaking indication' },
+          { keys: ['yoke', 'magnet', 'particle', 'mpt', 'mt'], equipment: 'AC/DC yoke', mark: 'Magnetic particle indication' },
+          { keys: ['probe', 'ut', 'ultrasonic', 'scanner', 'echo'], equipment: 'Ultrasonic probe / flaw detector', mark: 'UT echo or reflection' },
+          { keys: ['radiograph', 'film', 'xray', 'gamma', 'rt'], equipment: 'Radiographic film / source setup', mark: 'Dark line or radiographic indication' },
+          { keys: ['gauge', 'caliper', 'measure', 'vt', 'visual'], equipment: 'Visual inspection gauge', mark: 'Surface profile or undercut indication' },
+          { keys: ['hook', 'crane', 'lifting', 'load'], equipment: 'Lifting equipment', mark: 'Hook or rope defect indication' },
+          { keys: ['voltage', 'elec', 'electrical', 'tester', 'cable'], equipment: 'Electrical test equipment', mark: 'Voltage / insulation / continuity anomaly' },
+          { keys: ['pressure', 'vessel', 'valve', 'hydro'], equipment: 'Pressure equipment', mark: 'Wall loss or pressure test anomaly' }
+        ];
+        const match = profiles.find((profile) => profile.keys.some((key) => name.includes(key)));
+        return match || { equipment: 'General inspection equipment', mark: 'Surface indication or defect' };
+      }
+
+      function analyzeImageMetrics(file) {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+              const canvas = document.createElement('canvas');
+              const size = 60;
+              canvas.width = size;
+              canvas.height = size;
+              const ctx = canvas.getContext('2d');
+              ctx.drawImage(img, 0, 0, size, size);
+              const { data } = ctx.getImageData(0, 0, size, size);
+              let r = 0, g = 0, b = 0, brightness = 0, total = 0;
+              for (let i = 0; i < data.length; i += 4) {
+                r += data[i];
+                g += data[i + 1];
+                b += data[i + 2];
+                brightness += (data[i] + data[i + 1] + data[i + 2]) / 3;
+                total += 1;
+              }
+              const avgR = r / total;
+              const avgG = g / total;
+              const avgB = b / total;
+              const avgBrightness = brightness / total;
+              const aspect = img.width / img.height;
+              let equipment = 'General inspection equipment';
+              let mark = 'Surface indication or defect';
+              if (avgBrightness < 100) {
+                equipment = 'Radiographic or low-light inspection image';
+                mark = 'Dark defect image / image density anomaly';
+              } else if (avgB > avgR && avgB > avgG) {
+                equipment = 'Ultrasonic or NDT imaging equipment';
+                mark = 'Echo / signal indication';
+              } else if (avgR > avgG && avgR > avgB) {
+                equipment = 'Penetrant or magnetic particle inspection setup';
+                mark = 'Surface indication / leak line';
+              } else if (aspect > 1.3) {
+                equipment = 'Gauge or visual inspection setup';
+                mark = 'Profile / length / undercut indication';
+              }
+              resolve({ equipment, mark });
+            };
+            img.src = reader.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      async function analyzeUploadedPhoto(file) {
+        if (!file || !file.type.startsWith('image/')) return;
+        const byName = detectEquipmentFromName(file.name);
+        const byImage = await analyzeImageMetrics(file);
+        const equipment = byName.equipment !== 'General inspection equipment' ? byName.equipment : byImage.equipment;
+        const mark = byName.mark !== 'Surface indication or defect' ? byName.mark : byImage.mark;
+        const confidence = byName.equipment !== 'General inspection equipment' && byImage.equipment !== 'General inspection equipment' ? 'High' : 'Medium';
+        photoResult.innerHTML = '<strong>Photo analysis</strong>' +
+          '<div class="row">Equipment: ' + equipment + '</div>' +
+          '<div class="row">Inspection mark: ' + mark + '</div>' +
+          '<div class="row confidence">Confidence: ' + confidence + '</div>';
+        photoResult.hidden = false;
+        const photoTerm = (equipment + ' ' + mark).replace(/\s+/g, ' ').trim();
+        if (photoTerm) {
+          search.value = photoTerm;
+          render();
+          search.focus();
+        }
+      }
+
+      photoSearchButton.addEventListener('click', () => photoInput.click());
+      photoInput.addEventListener('change', (event) => {
+        const file = event.target.files && event.target.files[0];
+        analyzeUploadedPhoto(file);
+        photoInput.value = '';
+      });
+
+      ['dragenter', 'dragover'].forEach((eventName) => {
+        photoDropZone.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          photoDropZone.classList.add('dragover');
+        });
+      });
+      ['dragleave', 'drop'].forEach((eventName) => {
+        photoDropZone.addEventListener(eventName, (event) => {
+          event.preventDefault();
+          photoDropZone.classList.remove('dragover');
+        });
+      });
+      photoDropZone.addEventListener('drop', (event) => {
+        const file = event.dataTransfer && event.dataTransfer.files && event.dataTransfer.files[0];
+        analyzeUploadedPhoto(file);
+      });
+      search.addEventListener('input', render);
+      document.getElementById('clear-search').addEventListener('click', () => { search.value = ''; render(); search.focus(); photoResult.hidden = true; });
+      document.getElementById('back').addEventListener('click', () => { if (!document.getElementById('quiz-view').hidden) window.CYQUIZ.back(); else if (history.length > 1) history.back(); else window.scrollTo({ top: 0, behavior: 'smooth' }); });
+      document.getElementById('logout').addEventListener('click', async () => {
+        try {
+          const response = await fetch('/api/logout', { method: 'POST' });
+          const result = await response.json();
+          window.location.replace(result.authEnabled ? '/login' : '/');
+        } catch {
+          window.location.reload();
+        }
+      });
+      document.getElementById('lang').addEventListener('change', (event) => { if (window.speechSynthesis) window.speechSynthesis.cancel(); lang = event.target.checked ? 'en' : 'fr'; syncLabels(); render(); if (window.CYQUIZ) window.CYQUIZ.langChanged(); });
+      syncLabels();
+      render();
+      fetch('/api/health', { cache: 'no-store' }).then((response) => response.json()).then((status) => { document.getElementById('logout').hidden = !status.authEnabled; }).catch(() => {});
+    }());
+  </script>
+</body>
+</html>

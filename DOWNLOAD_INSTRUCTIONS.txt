@@ -1,0 +1,17 @@
+CYCLOPS PROJECT DOWNLOAD
+
+1. Download CYCLOPS-Project.zip from this project folder.
+2. Extract the ZIP to any folder on your computer.
+3. Open a PowerShell window inside the extracted folder.
+4. Run:
+
+   .\Start-CYCLOPS.ps1
+
+5. Open http://127.0.0.1:4173/ in your browser.
+
+Requirements:
+- Node.js
+- PowerShell
+- NVIDIA API key for AI responses
+
+The project contains the browser interface, 3D procedure visualizations, quiz, search, server, and automated launcher.

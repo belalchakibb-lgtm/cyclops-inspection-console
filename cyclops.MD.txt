@@ -1,0 +1,795 @@
+# AQCS CYCLOPS — PROJECT BLUEPRINT
+Version: 1.0
+Statut: Projet en développement
+Langues: Français / Anglais
+Cible: Inspecteurs AQCS / personnel technique
+Environnement: VS Code + Node.js + navigateur
+
+---
+
+# 0. RÈGLE ABSOLUE — CONTEXTE DU PROJET
+
+Tu travailles sur le projet AQCS CYCLOPS.
+
+Tu dois TOUJOURS conserver le contexte global du projet avant de modifier du code.
+
+Ne transforme jamais le projet en une simple application chatbot.
+
+CYCLOPS est un assistant technique industriel destiné à accompagner les activités d'inspection.
+
+Le projet combine :
+
+- procédures techniques
+- NDT
+- APL
+- APE
+- APVG
+- recherche locale
+- assistant IA
+- animations / visualisations 3D
+- interface bilingue FR/EN
+- authentification
+- aide contextuelle selon la méthode d'inspection
+
+Les méthodes actuellement représentées sont :
+
+- PT — Penetrant Testing
+- MT — Magnetic Testing
+- UT — Ultrasonic Testing
+- RT — Radiographic Testing
+- VT — Visual Testing
+- APL — Appareils / équipements de levage
+- APE — Appareils / équipements électriques
+- APVG — Appareils / équipements sous pression
+- OTHER
+
+---
+
+# 1. OBJECTIF FINAL
+
+Construire une plateforme AQCS CYCLOPS professionnelle permettant à un inspecteur de :
+
+1. sélectionner ou identifier une méthode d'inspection ;
+2. consulter rapidement la procédure correspondante ;
+3. comprendre les étapes de contrôle ;
+4. consulter les références/codes disponibles ;
+5. visualiser une représentation animée de la méthode ;
+6. rechercher localement dans la base de connaissances ;
+7. poser une question à l'assistant IA ;
+8. recevoir une réponse contextualisée par rapport à la méthode ;
+9. identifier les sources utilisées ;
+10. distinguer clairement :
+   - procédure AQCS
+   - référence normative
+   - information générale
+   - réponse générée par IA ;
+11. fonctionner autant que possible même lorsque l'API IA est indisponible.
+
+---
+
+# 2. ARCHITECTURE FONCTIONNELLE
+
+Architecture cible :
+
+CYCLOPS
+│
+├── AUTHENTIFICATION
+│
+├── DASHBOARD
+│
+├── PROCEDURES
+│   ├── PT
+│   ├── MT
+│   ├── UT
+│   ├── RT
+│   ├── VT
+│   ├── APL
+│   ├── APE
+│   ├── APVG
+│   └── OTHER
+│
+├── KNOWLEDGE BASE
+│   ├── procédures AQCS
+│   ├── codes
+│   ├── étapes
+│   ├── critères d'acceptation
+│   └── avertissements
+│
+├── 3D / VISUALISATION
+│   ├── PT
+│   ├── MT
+│   ├── UT
+│   ├── RT
+│   ├── VT
+│   ├── APL
+│   ├── APE
+│   ├── APVG
+│   └── OTHER
+│
+├── LOCAL SEARCH
+│
+├── AI ASSISTANT
+│   ├── détection méthode
+│   ├── contexte
+│   ├── retrieval
+│   ├── génération réponse
+│   └── sources
+│
+└── AUDIT / HISTORIQUE
+
+---
+
+# 3. ÉTAT ACTUEL DU PROJET
+
+Le projet possède déjà plusieurs briques importantes.
+
+## 3.1 Base de procédures
+
+Le projet contient une structure PROC avec :
+
+- PT
+- MT
+- UT
+- RT
+- VT
+- APL
+- APE
+- APVG
+- OTHER
+
+Les procédures contiennent notamment :
+
+- étapes
+- références/codes
+- critères d'acceptation
+- avertissements
+- informations techniques
+
+IMPORTANT :
+
+Les données existantes indiquent elles-mêmes que certaines valeurs doivent être vérifiées avec l'édition actuelle du code.
+
+Ne jamais transformer automatiquement une information existante en exigence normative absolue.
+
+---
+
+# 4. ASSISTANT IA ACTUEL
+
+Le frontend peut envoyer une requête vers :
+
+POST /api/ask
+
+avec notamment :
+
+{
+  q,
+  lang,
+  method,
+  history
+}
+
+Le backend utilise actuellement une API Anthropic.
+
+Le système prompt indique que l'assistant :
+
+- aide sur les méthodes NDT ;
+- aide sur APL ;
+- aide sur APE ;
+- aide sur APVG ;
+- répond en français ou anglais ;
+- donne des indications générales ;
+- doit demander une vérification par rapport au code actuel ;
+- doit orienter vers Level 3 / superviseur en cas de doute critique.
+
+---
+
+# 5. PROBLÈMES ACTUELS À NE PAS OUBLIER
+
+Avant toute modification importante, vérifier ces points.
+
+## Sécurité
+
+Le système actuel comporte des éléments d'authentification côté frontend.
+
+Ce mécanisme ne doit PAS être considéré comme une authentification professionnelle définitive.
+
+Objectif futur :
+
+Frontend
+    ↓
+session/auth sécurisée
+    ↓
+backend
+    ↓
+API protégée
+
+Ne jamais conserver inutilement un mot de passe en clair côté navigateur.
+
+---
+
+## API IA
+
+L'API actuelle doit être renforcée :
+
+- validation des requêtes
+- limitation de taille
+- rate limiting
+- gestion correcte des erreurs HTTP
+- validation de history
+- protection des secrets
+- logs contrôlés
+- timeout
+- gestion des erreurs Anthropic
+
+---
+
+# 6. RÈGLE IMPORTANTE POUR L'IA
+
+L'assistant ne doit jamais inventer une exigence normative.
+
+Il doit distinguer :
+
+### SOURCE AQCS
+
+Information provenant des procédures internes AQCS.
+
+### NORME / CODE
+
+Information provenant d'un code ou standard identifié.
+
+### INFORMATION GÉNÉRALE
+
+Connaissance générale qui n'est pas présentée comme une exigence AQCS.
+
+### IA
+
+Interprétation ou explication générée.
+
+---
+
+# 7. COMPORTEMENT ATTENDU DE L'IA
+
+Exemple :
+
+Utilisateur :
+
+"J'ai une indication UT de 42 mm, +6 dB et longueur 8 mm."
+
+L'IA ne doit pas immédiatement dire :
+
+"Accepté"
+
+ou
+
+"Rejeté".
+
+Elle doit vérifier le contexte disponible.
+
+Elle peut demander :
+
+- épaisseur
+- matériau
+- type de soudure
+- code applicable
+- édition du code
+- niveau d'acceptation
+- procédure applicable
+- localisation de l'indication
+- autres informations nécessaires
+
+Puis expliquer ce qui peut être déterminé avec les données disponibles.
+
+---
+
+# 8. KNOWLEDGE RETRIEVAL
+
+Architecture cible :
+
+Question utilisateur
+       ↓
+Détection méthode
+       ↓
+Détection sujet
+       ↓
+Recherche dans la Knowledge Base
+       ↓
+Sélection des passages pertinents
+       ↓
+Contexte envoyé à l'IA
+       ↓
+Réponse
+       ↓
+Sources affichées
+
+L'objectif n'est PAS de donner toute la base de données à Claude.
+
+Claude doit recevoir uniquement le contexte pertinent.
+
+---
+
+# 9. LOCAL SEARCH
+
+Le projet possède déjà une recherche locale basée sur les mots-clés.
+
+Cette recherche doit être conservée comme fallback.
+
+Objectif futur :
+
+Recherche hybride :
+
+Keyword Search
++
+Semantic Search
++
+Method Detection
+
+Exemple :
+
+"Comment contrôler une soudure avec UT ?"
+
+Le système doit détecter :
+
+method = UT
+
+Puis rechercher principalement dans :
+
+PROC.UT
+
+et les documents associés.
+
+---
+
+# 10. 3D / VISUALISATION
+
+Le projet possède déjà un moteur d'animation personnalisé.
+
+Les méthodes disposent de représentations animées.
+
+Objectif :
+
+Transformer les animations actuelles en véritables supports pédagogiques industriels.
+
+Pour chaque méthode :
+
+1. équipement ;
+2. pièce contrôlée ;
+3. positionnement ;
+4. mouvement de l'opérateur ;
+5. zone inspectée ;
+6. résultat / indication ;
+7. légendes ;
+8. étapes ;
+9. contrôles utilisateur.
+
+L'utilisateur doit pouvoir :
+
+- Play
+- Pause
+- Reset
+- Rotation
+- Zoom
+- Changer d'étape
+- Voir les explications
+- Éventuellement écouter une explication vocale
+
+---
+
+# 11. DESIGN UI
+
+Le design doit être :
+
+- professionnel
+- industriel
+- moderne
+- lisible
+- technique
+- responsive
+- utilisable sur tablette
+- utilisable dans un environnement terrain
+
+Éviter :
+
+- effets excessifs
+- animations décoratives inutiles
+- interface ressemblant à un jeu
+- couleurs agressives
+- surcharge visuelle
+
+La priorité est :
+
+CLARTÉ
+↓
+RAPIDITÉ
+↓
+INFORMATION
+↓
+SÉCURITÉ
+↓
+ESTHÉTIQUE
+
+---
+
+# 12. STRUCTURE D'UNE PAGE MÉTHODE
+
+Chaque méthode devrait idéalement avoir :
+
+┌─────────────────────────────┐
+│ NOM DE LA MÉTHODE           │
+│ DESCRIPTION                 │
+├─────────────────────────────┤
+│ VISUALISATION 3D            │
+├─────────────────────────────┤
+│ OBJECTIF                    │
+├─────────────────────────────┤
+│ ÉQUIPEMENT                  │
+├─────────────────────────────┤
+│ PRÉPARATION                 │
+├─────────────────────────────┤
+│ PROCÉDURE                   │
+├─────────────────────────────┤
+│ CRITÈRES                    │
+├─────────────────────────────┤
+│ CODES / RÉFÉRENCES          │
+├─────────────────────────────┤
+│ AVERTISSEMENTS              │
+└─────────────────────────────┘
+
+---
+
+# 13. ASSISTANT IA — INTERFACE
+
+L'assistant doit être accessible depuis toutes les pages pertinentes.
+
+Il doit connaître automatiquement :
+
+- langue
+- méthode sélectionnée
+- page actuelle
+- sujet courant
+- contexte utilisateur
+- résultats de recherche pertinents
+
+Exemple :
+
+Utilisateur consulte UT.
+
+Il ouvre l'assistant.
+
+Il demande :
+
+"Quel couplant utiliser ?"
+
+Le contexte envoyé doit indiquer :
+
+method = UT
+
+afin que l'IA n'ait pas besoin de deviner le domaine.
+
+---
+
+# 14. SOURCES DANS LES RÉPONSES
+
+Objectif :
+
+Chaque réponse technique importante doit pouvoir afficher :
+
+Source :
+- Procédure AQCS UT
+- Section X
+- Code Y
+- Edition Z
+
+Si aucune source fiable n'est disponible :
+
+"Information non disponible dans la base documentaire actuelle."
+
+Ne pas inventer de référence.
+
+---
+
+# 15. VERSIONING DES DOCUMENTS
+
+La Knowledge Base doit progressivement devenir versionnée.
+
+Structure cible :
+
+documents/
+│
+├── PT/
+├── MT/
+├── UT/
+├── RT/
+├── VT/
+├── APL/
+├── APE/
+└── APVG/
+
+Chaque document doit idéalement avoir :
+
+{
+  id,
+  title,
+  method,
+  version,
+  revision,
+  source,
+  effectiveDate,
+  content
+}
+
+---
+
+# 16. JOURNALISATION / AUDIT
+
+Prévoir à terme :
+
+- utilisateur
+- date
+- méthode
+- question
+- documents utilisés
+- réponse IA
+- version de la base documentaire
+
+Ne pas enregistrer de données sensibles inutilement.
+
+---
+
+# 17. ROADMAP
+
+NE PAS essayer de tout développer en même temps.
+
+## PHASE 1 — STABILISATION
+
+Objectif :
+
+Faire fonctionner parfaitement la base actuelle.
+
+Checklist :
+
+[ ] Vérifier syntaxe JavaScript
+[ ] Vérifier chargement PROC
+[ ] Vérifier toutes les méthodes
+[ ] Vérifier navigation
+[ ] Vérifier animations
+[ ] Vérifier recherche
+[ ] Vérifier assistant
+[ ] Vérifier FR/EN
+[ ] Vérifier API
+[ ] Vérifier erreurs frontend
+
+---
+
+## PHASE 2 — ARCHITECTURE
+
+[ ] Séparer frontend/backend
+[ ] Organiser modules
+[ ] Organiser données
+[ ] Centraliser configuration
+[ ] Ajouter validation
+[ ] Ajouter gestion erreurs
+
+---
+
+## PHASE 3 — SÉCURITÉ
+
+[ ] Authentification serveur
+[ ] Sessions sécurisées
+[ ] Suppression des secrets frontend
+[ ] Rate limiting
+[ ] Validation input
+[ ] Protection API
+[ ] Logs
+
+---
+
+## PHASE 4 — KNOWLEDGE BASE
+
+[ ] Transformer PROC en structure documentaire propre
+[ ] Ajouter métadonnées
+[ ] Ajouter version
+[ ] Ajouter sources
+[ ] Ajouter sections
+[ ] Ajouter recherche avancée
+
+---
+
+## PHASE 5 — RAG
+
+[ ] Retrieval
+[ ] Chunking
+[ ] Recherche sémantique
+[ ] Filtrage par méthode
+[ ] Context injection
+[ ] Sources dans les réponses
+
+---
+
+## PHASE 6 — IA
+
+[ ] Prompt système robuste
+[ ] Détection méthode
+[ ] Détection sujet
+[ ] Questions de clarification
+[ ] Réponses contextualisées
+[ ] Gestion des incertitudes
+[ ] Sécurité des réponses
+
+---
+
+## PHASE 7 — 3D
+
+[ ] Refactor moteur 3D
+[ ] Modèles plus réalistes
+[ ] Animations pédagogiques
+[ ] Interaction
+[ ] Étapes synchronisées
+[ ] Légendes
+[ ] Responsive
+
+---
+
+## PHASE 8 — OUTILS INSPECTEUR
+
+Ajouter progressivement :
+
+[ ] checklist inspection
+[ ] notes
+[ ] photos
+[ ] observations
+[ ] indications
+[ ] historique
+[ ] génération rapport
+[ ] export PDF
+
+---
+
+# 18. PRIORITÉS
+
+Lorsqu'il y a plusieurs tâches possibles :
+
+P0 = Bloquant / sécurité / erreur critique
+
+P1 = Fonction principale
+
+P2 = Amélioration importante
+
+P3 = Design / confort
+
+Ne jamais commencer une fonctionnalité P3 si une P0/P1 bloque encore le système.
+
+---
+
+# 19. RÈGLE ANTI-RÉGRESSION
+
+AVANT chaque modification :
+
+1. comprendre le code existant ;
+2. identifier les dépendances ;
+3. identifier ce qui peut être cassé ;
+4. modifier le minimum nécessaire ;
+5. tester ;
+6. vérifier les fonctions existantes.
+
+Ne jamais supprimer une fonctionnalité simplement parce qu'elle semble inutile.
+
+---
+
+# 20. RÈGLE POUR CLAUDE CODE
+
+Lorsque je te demande une modification :
+
+NE FAIS PAS immédiatement du code.
+
+Commence par :
+
+1. scanner les fichiers concernés ;
+2. comprendre leur rôle ;
+3. identifier les dépendances ;
+4. expliquer brièvement le problème ;
+5. proposer la modification ;
+6. effectuer la modification ;
+7. vérifier les erreurs ;
+8. résumer les fichiers modifiés.
+
+Si une information est ambiguë :
+
+pose une question avant une modification destructive.
+
+---
+
+# 21. FORMAT DES TÂCHES
+
+Chaque tâche doit être traitée comme ceci :
+
+## TASK
+
+Titre :
+
+Objectif :
+
+Fichiers concernés :
+
+État actuel :
+
+Modification demandée :
+
+Contraintes :
+
+Tests :
+
+Résultat :
+
+---
+
+# 22. FORMAT DE RAPPORT APRÈS MODIFICATION
+
+Après chaque tâche, répondre :
+
+### MODIFICATION
+Ce qui a été changé.
+
+### FICHIERS
+Liste des fichiers modifiés.
+
+### FONCTIONNEMENT
+Ce qui fonctionne maintenant.
+
+### TESTS
+Tests réalisés.
+
+### RISQUES
+Problèmes éventuels restant.
+
+### PROCHAINE ÉTAPE
+Une seule prochaine étape recommandée selon la roadmap.
+
+---
+
+# 23. RÈGLE DE CONTEXTE
+
+Si le projet devient complexe, ne perds jamais ces quatre axes :
+
+1. PROCEDURES
+2. KNOWLEDGE BASE
+3. IA
+4. VISUALISATION
+
+Toutes les nouvelles fonctionnalités doivent s'intégrer dans cette architecture.
+
+---
+
+# 24. DEFINITION OF DONE
+
+Une fonctionnalité n'est pas considérée comme terminée simplement parce que le code existe.
+
+Elle est terminée lorsque :
+
+[ ] code implémenté
+[ ] syntaxe valide
+[ ] pas de régression connue
+[ ] interface fonctionnelle
+[ ] erreurs gérées
+[ ] responsive si nécessaire
+[ ] sécurité vérifiée si nécessaire
+[ ] documentation mise à jour
+[ ] roadmap mise à jour
+
+---
+
+# 25. PHILOSOPHIE DU PROJET
+
+CYCLOPS doit évoluer progressivement.
+
+Ne pas réécrire tout le projet à chaque tâche.
+
+Préserver ce qui fonctionne.
+
+Améliorer progressivement :
+
+PROTOTYPE
+→ APPLICATION STABLE
+→ APPLICATION INDUSTRIELLE
+→ PLATEFORME AQCS
+
+Chaque modification doit rapprocher le projet de cet objectif.
