@@ -2,7 +2,7 @@ services:
   - type: web
     name: cyclops-inspection-console
     runtime: node
-    plan: starter
+    plan: free
     region: oregon
     buildCommand: npm ci
     startCommand: npm start
