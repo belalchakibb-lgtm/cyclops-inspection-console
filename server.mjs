@@ -39,9 +39,9 @@ if (authPartiallyConfigured && !authConfigured) {
 if (process.env.NODE_ENV === 'production' && !authConfigured) {
   throw new Error('Production requires CYCLOPS_USERNAME, CYCLOPS_PASSWORD, and SESSION_SECRET.');
 }
-if (authConfigured && (authSettings.username.length < 3 || authSettings.password.length < 12 || authSettings.sessionSecret.length < 32)) {
-  throw new Error('Use a username of at least 3 characters, a password of at least 12 characters, and a session secret of at least 32 characters.');
-}
+if (authConfigured && authSettings.username.length < 3) throw new Error('CYCLOPS_USERNAME must be at least 3 characters.');
+if (authConfigured && authSettings.password.length < 12) throw new Error('CYCLOPS_PASSWORD must be at least 12 characters.');
+if (authConfigured && authSettings.sessionSecret.length < 32) throw new Error('SESSION_SECRET must be at least 32 characters.');
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
