@@ -257,11 +257,13 @@ async function answer(request, response) {
       signal: AbortSignal.timeout(requestTimeoutMs)
     });
   } catch (error) {
+    console.error('AI provider request failed:', error && error.name || 'Error');
     return json(response, 502, { error: 'Could not reach the AI provider. Check the server logs and provider availability.' });
   }
 
   const result = await providerResponse.json().catch(() => ({}));
   if (!providerResponse.ok) {
+    console.warn(`AI provider returned HTTP ${providerResponse.status}.`);
     return json(response, 502, { error: `The AI provider returned HTTP ${providerResponse.status}. Check the model and API key configuration.` });
   }
   const text = provider === 'nvidia'
@@ -307,6 +309,7 @@ async function serve(request, response) {
 
 createServer((request, response) => {
   serve(request, response).catch(() => {
+    console.error('Unexpected local server error.');
     if (!response.headersSent) json(response, 500, { error: 'Unexpected local server error.' });
     else response.destroy();
   });
