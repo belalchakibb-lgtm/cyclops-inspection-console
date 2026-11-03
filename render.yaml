@@ -1,9 +1,9 @@
 services:
   - type: web
-    name: cyclops-inspection-console
+    name: cyclopsaqcs
     runtime: node
     plan: free
-    region: oregon
+    region: frankfurt
     buildCommand: npm ci
     startCommand: npm start
     healthCheckPath: /api/health
@@ -12,17 +12,21 @@ services:
         value: production
       - key: NODE_VERSION
         value: 24.21.0
-      - key: NVIDIA_API_KEY
+      - key: TRUST_PROXY
+        value: "1"
+      - key: AI_PROVIDER
+        value: anthropic
+      - key: ANTHROPIC_API_KEY
         sync: false
-      - key: NVIDIA_MODEL
-        value: meta/llama-3.2-11b-vision-instruct
-      - key: NVIDIA_MAX_TOKENS
-        value: 400
+      - key: ANTHROPIC_MODEL
+        value: claude-sonnet-5-5
+      - key: AI_MAX_TOKENS
+        value: 1200
       - key: AI_TIMEOUT_MS
-        value: 30000
-      - key: CYCLOPS_USERNAME
-        sync: false
-      - key: CYCLOPS_PASSWORD
+        value: 45000
+      - key: AI_SCOPE
+        value: inspection
+      - key: CYCLOPS_USERS
         sync: false
       - key: SESSION_SECRET
         generateValue: true

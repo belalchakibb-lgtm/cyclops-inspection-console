@@ -1,48 +1,74 @@
+# Starts CYCLOPS: checks Node.js, asks for the AI key once (saved in .env), starts the server, opens the browser.
 $ErrorActionPreference = 'Stop'
-$server = Join-Path $PSScriptRoot 'server.mjs'
+Set-Location $PSScriptRoot
 $port = 4173
+$url = "http://127.0.0.1:$port/"
+$envFile = Join-Path $PSScriptRoot '.env'
 
-function Stop-ExistingServer {
-  $connections = Get-NetTCPConnection -LocalPort $port -ErrorAction SilentlyContinue
-  if (-not $connections) { return }
-
-  $pids = $connections | Select-Object -ExpandProperty OwningProcess -Unique
-  foreach ($processId in $pids) {
-    try {
-      $process = Get-Process -Id $processId -ErrorAction Stop
-      if ($process) {
-        Stop-Process -Id $processId -Force -ErrorAction Stop
-        Write-Host "Stopped previous process $processId using port $port."
-      }
-    }
-    catch {
-      Write-Host "No active process found for PID $processId on port $port."
+function Get-EnvValue([string]$name) {
+  if (Test-Path $envFile) {
+    foreach ($line in [IO.File]::ReadAllLines($envFile)) {
+      if ($line -match "^\s*$name\s*=\s*(.*)$") { return $Matches[1].Trim().Trim('"') }
     }
   }
+  return $null
 }
 
-if (-not $env:NVIDIA_API_KEY -and -not $env:ANTHROPIC_API_KEY) {
-  $keyInput = Read-Host 'New NVIDIA API key (press Enter for local-only mode)'
+function Set-EnvValue([string]$name, [string]$value) {
+  $lines = @()
+  if (Test-Path $envFile) { $lines = @([IO.File]::ReadAllLines($envFile) | Where-Object { $_ -notmatch "^\s*$name\s*=" }) }
+  $lines += "$name=$value"
+  [IO.File]::WriteAllLines($envFile, [string[]]$lines)   # UTF-8 without BOM
+}
+
+# 1. Node.js
+$node = (Get-Command node -ErrorAction SilentlyContinue).Source
+if (-not $node -and (Test-Path 'C:\Program Files\nodejs\node.exe')) { $node = 'C:\Program Files\nodejs\node.exe' }
+if (-not $node) {
+  Write-Host 'Node.js is not installed. Install the LTS version from https://nodejs.org then run this again.' -ForegroundColor Red
+  Read-Host 'Press Enter to close'
+  exit 1
+}
+
+# 2. AI key (asked once, then remembered in .env)
+$hasKey = $env:NVIDIA_API_KEY -or $env:ANTHROPIC_API_KEY -or (Get-EnvValue 'NVIDIA_API_KEY') -or (Get-EnvValue 'ANTHROPIC_API_KEY')
+if (-not $hasKey) {
+  Write-Host ''
+  Write-Host 'No AI key saved yet.' -ForegroundColor Yellow
+  Write-Host 'Get one at https://build.nvidia.com (it starts with nvapi-).'
+  $keyInput = Read-Host 'Paste your NVIDIA API key, or press Enter to run without AI'
   if ($keyInput -and $keyInput.Trim().Length -gt 0) {
-    $env:NVIDIA_API_KEY = $keyInput.Trim()
+    $key = $keyInput.Trim()
+    if (-not $key.StartsWith('nvapi-')) { Write-Host 'Warning: NVIDIA keys normally start with nvapi-. Saving it anyway.' -ForegroundColor Yellow }
+    Set-EnvValue 'NVIDIA_API_KEY' $key
+    Write-Host 'Key saved in .env (private file, not sent to git). You will not be asked again.' -ForegroundColor Green
+    Write-Host 'To change it later, edit or delete the .env file.'
+  } else {
+    Write-Host 'Starting without AI: the assistant will use offline answers from the procedures.' -ForegroundColor Yellow
   }
 }
 
-if (-not $env:NVIDIA_MODEL) {
-  $env:NVIDIA_MODEL = 'meta/llama-3.2-11b-vision-instruct'
+# 3. Stop any older CYCLOPS still holding the port
+$connections = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+foreach ($processId in ($connections | Select-Object -ExpandProperty OwningProcess -Unique)) {
+  try { Stop-Process -Id $processId -Force -ErrorAction Stop; Write-Host "Stopped the previous server (process $processId)." } catch {}
 }
-if (-not $env:NVIDIA_MAX_TOKENS) {
-  $env:NVIDIA_MAX_TOKENS = '400'
-}
-if (-not $env:AI_TIMEOUT_MS) {
-  $env:AI_TIMEOUT_MS = '30000'
-}
+Start-Sleep -Milliseconds 400
 
-if (-not $env:NVIDIA_API_KEY -and -not $env:ANTHROPIC_API_KEY) {
-  Write-Host 'No AI key supplied. Starting in local-only mode.'
+# 4. Start the server in this window, open the browser when it answers
+Write-Host ''
+Write-Host "Starting CYCLOPS on $url  (close this window or press Ctrl+C to stop it)" -ForegroundColor Cyan
+$server = Start-Process -FilePath $node -ArgumentList 'server.mjs' -NoNewWindow -PassThru
+$ready = $false
+for ($i = 0; $i -lt 30 -and -not $server.HasExited; $i++) {
+  Start-Sleep -Milliseconds 300
+  try { Invoke-WebRequest -Uri "${url}api/health" -UseBasicParsing -TimeoutSec 2 | Out-Null; $ready = $true; break } catch {}
 }
-
-Stop-ExistingServer
-Write-Host "Starting CYCLOPS on http://127.0.0.1:$port"
-Write-Host "Using NVIDIA model $env:NVIDIA_MODEL with max_tokens=$env:NVIDIA_MAX_TOKENS"
-& node $server
+if ($ready) {
+  Start-Process $url
+} elseif ($server.HasExited) {
+  Write-Host 'The server stopped with an error (see the message above).' -ForegroundColor Red
+  Read-Host 'Press Enter to close'
+  exit 1
+}
+Wait-Process -Id $server.Id

@@ -3,6 +3,11 @@ node_modules/
 .env.*
 !.env.example
 *.log
+data/
+_backup-*/
 CYCLOPS-Project.zip
 node.js
 Untitled-1 U.py
+Untitled-1.txt
+.claude/
+package/

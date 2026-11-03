@@ -4,6 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CYCLOPS Inspection Console</title>
+  <meta name="theme-color" content="#081126">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="stylesheet" href="./cyclops-field.css">
+  <script>try { if (localStorage.getItem('cyclops-field-mode') === '1') document.documentElement.classList.add('field'); } catch (e) {}</script>
   <style>
     :root { color-scheme: dark; --bg: #081126; --panel: #121d3b; --line: #344a83; --text: #edf2ff; --muted: #aebbe3; --accent: #7657e8; --blue: #3da9ff; --violet: #9d65ff; }
     * { box-sizing: border-box; }
@@ -84,7 +90,7 @@
 </head>
 <body>
   <main>
-    <header><div><h1 class="brand" aria-label="CYCLOPS">CYCL<span class="wolf-o" aria-hidden="true"></span><span class="brand-label">O</span>PS</h1><p class="mut" id="subtitle">AQCS inspection procedures and method visualisation</p></div><div class="head-actions"><button id="back" type="button">← Back</button><button id="quiz-open" type="button">Quiz</button><button id="logout" type="button" hidden>Sign out</button><label class="lang-switch" aria-label="Switch language between French and English"><span>FR</span><input id="lang" type="checkbox" checked><span class="lang-track"></span><span>EN</span></label></div></header>
+    <header><div><h1 class="brand" aria-label="CYCLOPS">CYCL<span class="wolf-o" aria-hidden="true"></span><span class="brand-label">O</span>PS</h1><p class="mut" id="subtitle">AQCS inspection procedures and method visualisation</p></div><div class="head-actions"><button id="back" type="button">← Back</button><button id="tools-open" type="button">Field inspections</button><button id="quiz-open" type="button">Quiz</button><button id="field-mode" type="button" aria-pressed="false" title="High-contrast mode for outdoor use">☀ Field mode</button><button id="logout" type="button" hidden>Sign out</button><label class="lang-switch" aria-label="Switch language between French and English"><span>FR</span><input id="lang" type="checkbox" checked><span class="lang-track"></span><span>EN</span></label></div></header>
     <div class="search" id="photo-dropzone">
       <input id="procedure-search" type="search" placeholder="Search methods, equipment, steps, codes or hazards" autocomplete="off" aria-label="Search methods, equipment, steps, codes or hazards">
       <button id="photo-search" class="photo-btn" type="button" title="Search by photo name">Photo</button>
@@ -95,13 +101,34 @@
     <nav id="ptab" aria-label="Inspection methods"></nav>
     <section id="prd"><div class="ah"></div><div id="pbody"></div></section>
     <section id="quiz-view" hidden aria-live="polite"></section>
+    <section id="tools-view" hidden></section>
   </main>
   <script>var lang = 'en';</script>
   <script src="./cyclops-procs.js"></script>
+  <script src="./cyclops-courses.js"></script>
+  <script type="module" src="./cyclops-gl.js"></script>
   <script src="./cyclops3D.js"></script>
+  <script src="./cyclops-utsim.js"></script>
+  <script src="./cyclops-rtsim.js"></script>
+  <script src="./cyclops-surfsim.js"></script>
+  <script src="./cyclops-study.js"></script>
+  <script src="./cyclops-ndt-academy.js"></script>
+  <script src="./cyclops-challenges.js"></script>
+  <script src="./cyclops-scenarios.js"></script>
+  <script src="./cyclops-academy.js"></script>
   <script src="./cyclops-quiz.js"></script>
+  <script src="./cyclops-tools.js"></script>
   <script>
     (function () {
+      if (!window.CYPROC) {
+        const fromFile = location.protocol === 'file:';
+        document.getElementById('pbody').innerHTML = '<h2>CYCLOPS is not running</h2><p>' +
+          (fromFile ? 'This page was opened directly as a file. ' : 'The procedure files could not be loaded. ') +
+          'Double-click <b>Start-CYCLOPS.bat</b> in the CYCLOPS folder; it opens <b>http://127.0.0.1:4173/</b> for you.</p>' +
+          '<p class="mut">CYCLOPS ne fonctionne pas : ' + (fromFile ? 'la page a été ouverte directement comme fichier. ' : 'les fichiers de procédures ne se chargent pas. ') +
+          'Double-cliquez sur <b>Start-CYCLOPS.bat</b> dans le dossier CYCLOPS ; il ouvre <b>http://127.0.0.1:4173/</b>.</p>';
+        return;
+      }
       const tabs = document.getElementById('ptab');
       const body = document.getElementById('pbody');
       const keys = ['PT', 'MT', 'UT', 'RT', 'VT', 'APL', 'APE', 'APVG', 'OTH'];
@@ -114,6 +141,11 @@
         document.getElementById('subtitle').textContent = text('AQCS inspection procedures and method visualisation', 'Procédures d’inspection AQCS et visualisation des méthodes');
         document.getElementById('back').textContent = text('← Back', '← Retour');
         document.getElementById('quiz-open').textContent = text('Quiz', 'Quiz');
+        document.getElementById('tools-open').textContent = text('Field inspections', 'Inspections terrain');
+        const fieldButton = document.getElementById('field-mode');
+        fieldButton.textContent = '☀ ' + text('Field mode', 'Mode terrain');
+        fieldButton.title = text('High-contrast mode for outdoor use', 'Mode contraste élevé pour l’extérieur');
+        fieldButton.setAttribute('aria-pressed', String(document.documentElement.classList.contains('field')));
         document.getElementById('logout').textContent = text('Sign out', 'Déconnexion');
         search.placeholder = text('Search methods, equipment, steps, codes or hazards', 'Rechercher une méthode, un équipement, une étape, une norme ou un risque');
         search.setAttribute('aria-label', search.placeholder);
@@ -121,7 +153,7 @@
         clear.textContent = text('Clear', 'Effacer');
         clear.title = text('Clear search', 'Effacer la recherche');
         document.getElementById('photo-search').textContent = text('Photo', 'Photo');
-        document.getElementById('photo-search').title = text('Search by photo name', 'Recherche par nom de photo');
+        document.getElementById('photo-search').title = text('Find a method from a photo file name, or send the photo to the assistant', 'Trouver une méthode à partir du nom de la photo, ou envoyer la photo à l’assistant');
         document.querySelector('.lang-switch').setAttribute('aria-label', text('Switch language between French and English', 'Changer la langue entre le français et l’anglais'));
         document.getElementById('ptab').setAttribute('aria-label', text('Inspection methods', 'Méthodes d’inspection'));
       }
@@ -152,12 +184,13 @@
         const equipmentHtml = '<details open><summary>' + text('Equipment and operating principle', 'Équipements et principe de fonctionnement') + '</summary><div class="equipment-grid">' + equipment.map((item, index) => { const localized = window.CY3 && window.CY3.equipmentText ? window.CY3.equipmentText(current, index, item) : item; return '<article class="equipment-card" tabindex="0" role="button" data-equipment="' + index + '"><strong>' + localized[0] + '</strong><span>' + localized[1] + '</span></article>'; }).join('') + '</div></details>';
         const hseHtml = '<details><summary>' + text('HSE procedure to use', 'Consignes de santé et sécurité') + '</summary><ul class="hse-list">' + (translated.hse || p.hse || []).map((item) => '<li>' + item + '</li>').join('') + '</ul></details>';
         const codes = p.codes.map((item, index) => [item[0], translated.codes && translated.codes[index] || item[1]]);
-        body.innerHTML = '<h2>' + translated.name + '</h2>' + equipmentHtml + hseHtml + translated.steps.map((step) => '<details open><summary>' + step[0] + '</summary><ul>' + step[1].map((item) => '<li>' + item + '</li>').join('') + '</ul></details>').join('') + '<details><summary>' + text('Codes and references', 'Codes et références') + '</summary><ul>' + codes.map((item) => '<li><b>' + item[0] + '</b>: ' + item[1] + '</li>').join('') + '</ul></details>';
+        body.innerHTML = '<h2>' + translated.name + '</h2><button type="button" class="cy-course-launch" data-course="' + current + '">🎓 ' + text('Start full course with 3D instructor', 'Commencer le cours complet avec le formateur 3D') + '</button>' + equipmentHtml + hseHtml + translated.steps.map((step) => '<details open><summary>' + step[0] + '</summary><ul>' + step[1].map((item) => '<li>' + item + '</li>').join('') + '</ul></details>').join('') + '<details><summary>' + text('Codes and references', 'Codes et références') + '</summary><ul>' + codes.map((item) => '<li><b>' + item[0] + '</b>: ' + item[1] + '</li>').join('') + '</ul></details>';
         const active = tabs.querySelector('[data-pm="' + current + '"]');
         if (active) active.classList.add('on');
       }
       tabs.addEventListener('click', (event) => { const button = event.target.closest('[data-pm]'); if (button) { current = button.dataset.pm; render(); } });
       body.addEventListener('click', (event) => { const card = event.target.closest('[data-equipment]'); if (card) window.CY3 && window.CY3.openEquipment(current, Number(card.dataset.equipment)); });
+      body.addEventListener('click', (event) => { const button = event.target.closest('[data-course]'); if (button) window.CY3 && window.CY3.openCourse(button.dataset.course); });
       body.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { const card = event.target.closest('[data-equipment]'); if (card) { event.preventDefault(); window.CY3 && window.CY3.openEquipment(current, Number(card.dataset.equipment)); } } });
       const photoInput = document.getElementById('photo-search-input');
       const photoSearchButton = document.getElementById('photo-search');
@@ -181,73 +214,21 @@
         return match || { equipment: 'General inspection equipment', mark: 'Surface indication or defect' };
       }
 
-      function analyzeImageMetrics(file) {
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const img = new Image();
-            img.onload = () => {
-              const canvas = document.createElement('canvas');
-              const size = 60;
-              canvas.width = size;
-              canvas.height = size;
-              const ctx = canvas.getContext('2d');
-              ctx.drawImage(img, 0, 0, size, size);
-              const { data } = ctx.getImageData(0, 0, size, size);
-              let r = 0, g = 0, b = 0, brightness = 0, total = 0;
-              for (let i = 0; i < data.length; i += 4) {
-                r += data[i];
-                g += data[i + 1];
-                b += data[i + 2];
-                brightness += (data[i] + data[i + 1] + data[i + 2]) / 3;
-                total += 1;
-              }
-              const avgR = r / total;
-              const avgG = g / total;
-              const avgB = b / total;
-              const avgBrightness = brightness / total;
-              const aspect = img.width / img.height;
-              let equipment = 'General inspection equipment';
-              let mark = 'Surface indication or defect';
-              if (avgBrightness < 100) {
-                equipment = 'Radiographic or low-light inspection image';
-                mark = 'Dark defect image / image density anomaly';
-              } else if (avgB > avgR && avgB > avgG) {
-                equipment = 'Ultrasonic or NDT imaging equipment';
-                mark = 'Echo / signal indication';
-              } else if (avgR > avgG && avgR > avgB) {
-                equipment = 'Penetrant or magnetic particle inspection setup';
-                mark = 'Surface indication / leak line';
-              } else if (aspect > 1.3) {
-                equipment = 'Gauge or visual inspection setup';
-                mark = 'Profile / length / undercut indication';
-              }
-              resolve({ equipment, mark });
-            };
-            img.src = reader.result;
-          };
-          reader.readAsDataURL(file);
-        });
-      }
-
       async function analyzeUploadedPhoto(file) {
         if (!file || !file.type.startsWith('image/')) return;
         const byName = detectEquipmentFromName(file.name);
-        const byImage = await analyzeImageMetrics(file);
-        const equipment = byName.equipment !== 'General inspection equipment' ? byName.equipment : byImage.equipment;
-        const mark = byName.mark !== 'Surface indication or defect' ? byName.mark : byImage.mark;
-        const confidence = byName.equipment !== 'General inspection equipment' && byImage.equipment !== 'General inspection equipment' ? 'High' : 'Medium';
-        photoResult.innerHTML = '<strong>Photo analysis</strong>' +
-          '<div class="row">Equipment: ' + equipment + '</div>' +
-          '<div class="row">Inspection mark: ' + mark + '</div>' +
-          '<div class="row confidence">Confidence: ' + confidence + '</div>';
+        const found = byName.equipment !== 'General inspection equipment';
+        photoResult.innerHTML = '<strong>' + text('Photo', 'Photo') + ': ' + file.name.replace(/[&<>"']/g, '') + '</strong>' +
+          (found ? '<div class="row">' + text('Search suggestion from the file name', 'Suggestion de recherche d’après le nom du fichier') + ': ' + byName.equipment + '</div>' : '') +
+          '<div class="row">' + text('This is not image recognition. To identify what is in the photo, send it to the assistant.', 'Ceci n’est pas une reconnaissance d’image. Pour identifier le contenu de la photo, envoyez-la à l’assistant.') + '</div>' +
+          '<button type="button" id="photo-to-ai">🤖 ' + text('Ask the assistant about this photo', 'Demander à l’assistant d’analyser cette photo') + '</button>';
         photoResult.hidden = false;
-        const photoTerm = (equipment + ' ' + mark).replace(/\s+/g, ' ').trim();
-        if (photoTerm) {
-          search.value = photoTerm;
-          render();
-          search.focus();
-        }
+        document.getElementById('photo-to-ai').addEventListener('click', () => {
+          if (!window.CY3) return;
+          window.CY3.open();
+          window.CY3.attachImage(file);
+        });
+        if (found) { search.value = byName.equipment; render(); }
       }
 
       photoSearchButton.addEventListener('click', () => photoInput.click());
@@ -275,7 +256,7 @@
       });
       search.addEventListener('input', render);
       document.getElementById('clear-search').addEventListener('click', () => { search.value = ''; render(); search.focus(); photoResult.hidden = true; });
-      document.getElementById('back').addEventListener('click', () => { if (!document.getElementById('quiz-view').hidden) window.CYQUIZ.back(); else if (history.length > 1) history.back(); else window.scrollTo({ top: 0, behavior: 'smooth' }); });
+      document.getElementById('back').addEventListener('click', () => { if (window.CYTOOLS && window.CYTOOLS.isOpen()) window.CYTOOLS.back(); else if (!document.getElementById('quiz-view').hidden) window.CYQUIZ.back(); else if (history.length > 1) history.back(); else window.scrollTo({ top: 0, behavior: 'smooth' }); });
       document.getElementById('logout').addEventListener('click', async () => {
         try {
           const response = await fetch('/api/logout', { method: 'POST' });
@@ -285,7 +266,24 @@
           window.location.reload();
         }
       });
-      document.getElementById('lang').addEventListener('change', (event) => { if (window.speechSynthesis) window.speechSynthesis.cancel(); lang = event.target.checked ? 'en' : 'fr'; syncLabels(); render(); if (window.CYQUIZ) window.CYQUIZ.langChanged(); });
+      document.getElementById('lang').addEventListener('change', (event) => { if (window.speechSynthesis) window.speechSynthesis.cancel(); lang = event.target.checked ? 'en' : 'fr'; syncLabels(); render(); if (window.CYQUIZ) window.CYQUIZ.langChanged(); if (window.CYTOOLS) window.CYTOOLS.langChanged(); });
+      document.getElementById('tools-open').addEventListener('click', () => window.CYTOOLS && window.CYTOOLS.open());
+      document.getElementById('quiz-open').addEventListener('click', () => { const tools = document.getElementById('tools-view'); if (!tools.hidden) tools.hidden = true; });
+      document.getElementById('field-mode').addEventListener('click', (event) => {
+        const on = document.documentElement.classList.toggle('field');
+        try { localStorage.setItem('cyclops-field-mode', on ? '1' : '0'); } catch (e) {}
+        event.currentTarget.setAttribute('aria-pressed', String(on));
+      });
+      function networkBanner() {
+        let banner = document.getElementById('cy-net');
+        if (navigator.onLine) { if (banner) banner.remove(); return; }
+        if (!banner) { banner = document.createElement('div'); banner.id = 'cy-net'; banner.className = 'cy-net'; banner.setAttribute('role', 'status'); document.body.appendChild(banner); }
+        banner.textContent = text('Offline — procedures, quiz and field inspections still work; the AI assistant uses offline answers.', 'Hors ligne — procédures, quiz et inspections terrain restent disponibles ; l’assistant utilise les réponses hors ligne.');
+      }
+      window.addEventListener('online', networkBanner);
+      window.addEventListener('offline', networkBanner);
+      networkBanner();
+      if ('serviceWorker' in navigator && window.isSecureContext) navigator.serviceWorker.register('/sw.js').catch(() => {});
       syncLabels();
       render();
       fetch('/api/health', { cache: 'no-store' }).then((response) => response.json()).then((status) => { document.getElementById('logout').hidden = !status.authEnabled; }).catch(() => {});

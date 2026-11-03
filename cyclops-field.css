@@ -1,0 +1,83 @@
+/* CYCLOPS: field tools, assistant sources, and the high-contrast "field mode" theme. */
+
+/* Elements with the hidden attribute must stay hidden even when a rule sets display. */
+[hidden] { display: none !important; }
+
+/* ---------- Field tools ---------- */
+#tools-view { background: linear-gradient(145deg, rgba(18, 29, 59, .94), rgba(13, 20, 47, .9)); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+.ft-page { width: min(980px, 100%); margin: 0 auto; }
+.ft-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 10px; }
+.ft-top h2 { margin: 0; }
+.ft-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+.ft-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ft-danger { border-color: #c2475a; color: #ffb3bd; background: transparent; }
+.ft-danger:hover { background: #a3283b; color: #fff; border-color: #a3283b; }
+.ft-new { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin: 8px 0 14px; }
+.ft-new select, .ft-page input, .ft-page select, .ft-page textarea { display: block; width: 100%; margin-top: 4px; border: 1px solid var(--line); border-radius: 7px; background: #0b1530; color: var(--text); padding: 9px 10px; font: inherit; }
+.ft-new label { min-width: 240px; }
+.ft-list { display: grid; gap: 8px; }
+.ft-job { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; text-align: left; padding: 12px; }
+.ft-job span { color: var(--muted); font-size: 13px; }
+.ft-job:hover span { color: #fff; }
+.ft-badge { grid-row: 1 / span 2; grid-column: 2; align-self: center; }
+.ft-badge[data-c="conform"] { color: #7de2b5; } .ft-badge[data-c="nonconform"] { color: #ff9eaa; } .ft-badge[data-c="reserve"] { color: #ffd27a; }
+.ft-empty { color: var(--muted); padding: 18px 0; }
+.ft-saved { color: #8ef0c1; font-size: 13px; margin-left: 8px; }
+.ft-tabs { display: flex; flex-wrap: wrap; gap: 6px; border-bottom: 1px solid var(--line); padding-bottom: 10px; margin-bottom: 14px; }
+.ft-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px 14px; }
+.ft-grid label, .ft-wide { display: block; font-weight: 600; font-size: 14px; }
+.ft-wide { margin: 12px 0; }
+.ft-check h3 { font-size: 1rem; margin: 18px 0 6px; color: var(--blue); }
+.ft-ci { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: center; padding: 10px 0; border-top: 1px solid rgba(52, 74, 131, .6); }
+.ft-ci p { margin: 0; }
+.ft-ci input { grid-column: 1 / -1; }
+.ft-seg { display: flex; gap: 4px; }
+.ft-seg button { min-width: 64px; }
+.ft-seg .s-ok { background: #1f7a55; border-color: #1f7a55; }
+.ft-seg .s-nok { background: #a3283b; border-color: #a3283b; }
+.ft-seg .s-na { background: #55607a; border-color: #55607a; }
+.ft-ind { border: 1px solid var(--line); border-radius: 9px; padding: 12px 14px; margin: 14px 0; background: rgba(11, 21, 48, .6); }
+.ft-ind-head { display: flex; justify-content: space-between; align-items: center; }
+.ft-ind-head h3 { margin: 0; font-size: 1.05rem; }
+.ft-photos { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
+.ft-photo { position: relative; margin: 0; width: 170px; }
+.ft-photo img { width: 170px; height: 128px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); display: block; }
+.ft-photo button { position: absolute; top: 4px; right: 4px; padding: 2px 7px; }
+.ft-ai { border-left: 3px solid var(--blue); padding: 8px 12px; margin-top: 8px; background: rgba(61, 169, 255, .08); }
+.ft-ai div { margin-top: 4px; color: var(--muted); }
+.ft-summary { display: flex; flex-wrap: wrap; gap: 8px 22px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
+@media (max-width: 640px) { .ft-ci { grid-template-columns: 1fr; } #tools-view { padding: 12px; } }
+
+/* ---------- Assistant sources ---------- */
+.cy-src { margin-top: 8px; padding-top: 6px; border-top: 1px dashed rgba(174, 187, 227, .4); font-size: 12px; }
+.cy-src summary { cursor: pointer; font-weight: 700; }
+.cy-src > span { display: block; opacity: .8; }
+.cy-src-item { margin: 6px 0; padding-left: 8px; border-left: 3px solid #888; }
+.cy-src-item b, .cy-src-item span, .cy-src-item small { display: block; }
+.cy-src-item small { opacity: .75; }
+.cy-src-item[data-type="AQCS"] { border-color: #2fbf71; }
+.cy-src-item[data-type="AQCS_DRAFT"] { border-color: #e0a526; }
+.cy-src-item[data-type="CODE_REF"] { border-color: #3da9ff; }
+.cy-src-item[data-type="CYCLOPS"] { border-color: #9d65ff; }
+.cy-src-item[data-type="STUDY"] { border-color: #ff9f43; }
+
+/* ---------- Install / offline banner ---------- */
+.cy-net { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 50; padding: 8px 14px; border-radius: 999px; background: #a3283b; color: #fff; font-size: 13px; box-shadow: 0 6px 20px rgba(0, 0, 0, .35); }
+
+/* ---------- Field mode: high contrast for sunlight, bigger touch targets ---------- */
+html.field { --bg: #f3f5f7; --panel: #ffffff; --line: #4a5565; --text: #0a0d12; --muted: #2d3440; --accent: #0b4fd6; --blue: #0b4fd6; --violet: #5a2bd1; }
+html.field body { background: var(--bg); font-size: 17px; color: var(--text); }
+html.field .brand { color: #0a0d12; text-shadow: none; }
+html.field button, html.field .photo-btn { min-height: 44px; background: #fff; color: #0a0d12; border: 2px solid #4a5565; }
+html.field button:hover, html.field button.on, html.field .ft-primary, html.field .quiz-primary { background: #0b4fd6; border-color: #0b4fd6; color: #fff; }
+html.field #pbody, html.field #quiz-view, html.field #tools-view { background: #fff; box-shadow: none; border: 2px solid #4a5565; }
+html.field .equipment-card, html.field .quiz-method, html.field .ft-ind { background: #fff; border: 2px solid #c3c9d2; }
+html.field .equipment-card strong { color: #0a0d12; }
+html.field .search input[type="search"], html.field .ft-page input, html.field .ft-page select, html.field .ft-page textarea, html.field .ft-new select { background: #fff; color: #0a0d12; border: 2px solid #4a5565; }
+html.field .ft-seg .s-ok { background: #146c43; color: #fff; } html.field .ft-seg .s-nok { background: #b00020; color: #fff; } html.field .ft-seg .s-na { background: #4a5565; color: #fff; }
+html.field .ft-danger { color: #b00020; border-color: #b00020; }
+html.field .ft-saved { color: #146c43; }
+html.field .ft-ai div { color: #2d3440; }
+html.field .ft-job span, html.field .mut { color: #2d3440; }
+html.field dialog { background: #fff !important; color: #0a0d12 !important; }
+html.field .lang-track { background: #dfe4ea; }

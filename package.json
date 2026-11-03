@@ -1,11 +1,12 @@
 {
   "name": "cyclops-inspection-console",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "private": true,
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
-    "check": "node --check server.mjs && node --check cyclops-procs.js && node --check cyclops3D.js && node --check cyclops-quiz.js"
+    "check": "node --check server.mjs && node --check kb.mjs && node --check cyclops-procs.js && node --check cyclops-courses.js && node --check cyclops3D.js && node --check cyclops-gl.js && node --check cyclops-utsim.js && node --check cyclops-rtsim.js && node --check cyclops-study.js && node --check cyclops-academy.js && node --check cyclops-ndt-academy.js && node --check cyclops-surfsim.js && node --check cyclops-challenges.js && node --check cyclops-scenarios.js && node --check cyclops-quiz.js && node --check cyclops-tools.js && node --check sw.js",
+    "test": "node --test tests/server.test.mjs"
   },
   "engines": {
     "node": ">=22 <25"

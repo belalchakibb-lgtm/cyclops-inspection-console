@@ -1,5 +1,5 @@
 # AQCS CYCLOPS — PROJECT BLUEPRINT
-Version: 1.0
+Version: 1.1 (mise à jour 2026-11-03)
 Statut: Projet en développement
 Langues: Français / Anglais
 Cible: Inspecteurs AQCS / personnel technique
@@ -168,7 +168,16 @@ avec notamment :
   history
 }
 
-Le backend utilise actuellement une API Anthropic.
+Le backend (server.mjs) utilise NVIDIA NIM (NVIDIA_API_KEY) ou Anthropic (ANTHROPIC_API_KEY).
+
+Depuis la v1.1 :
+
+- le navigateur n'envoie plus que q, lang, method, history et éventuellement une image ;
+- le prompt système est construit UNIQUEMENT côté serveur (le navigateur ne peut plus le modifier) ;
+- le serveur cherche lui-même les passages pertinents (kb.mjs) et les envoie à l'IA avec des étiquettes [S1], [S2]… ;
+- la réponse renvoie la liste des sources (type, document, section, révision) affichée sous chaque réponse ;
+- la langue demandée est imposée à l'IA ;
+- les échanges sont journalisés dans data/audit.jsonl (désactivable : AUDIT_LOG=off).
 
 Le système prompt indique que l'assistant :
 
@@ -547,7 +556,7 @@ Faire fonctionner parfaitement la base actuelle.
 
 Checklist :
 
-[ ] Vérifier syntaxe JavaScript
+[x] Vérifier syntaxe JavaScript
 [ ] Vérifier chargement PROC
 [ ] Vérifier toutes les méthodes
 [ ] Vérifier navigation
@@ -555,7 +564,7 @@ Checklist :
 [ ] Vérifier recherche
 [ ] Vérifier assistant
 [ ] Vérifier FR/EN
-[ ] Vérifier API
+[x] Vérifier API
 [ ] Vérifier erreurs frontend
 
 ---
@@ -566,49 +575,49 @@ Checklist :
 [ ] Organiser modules
 [ ] Organiser données
 [ ] Centraliser configuration
-[ ] Ajouter validation
-[ ] Ajouter gestion erreurs
+[x] Ajouter validation
+[x] Ajouter gestion erreurs
 
 ---
 
 ## PHASE 3 — SÉCURITÉ
 
-[ ] Authentification serveur
-[ ] Sessions sécurisées
-[ ] Suppression des secrets frontend
-[ ] Rate limiting
-[ ] Validation input
-[ ] Protection API
-[ ] Logs
+[x] Authentification serveur
+[x] Sessions sécurisées
+[x] Suppression des secrets frontend
+[x] Rate limiting
+[x] Validation input
+[x] Protection API
+[x] Logs
 
 ---
 
 ## PHASE 4 — KNOWLEDGE BASE
 
 [ ] Transformer PROC en structure documentaire propre
-[ ] Ajouter métadonnées
-[ ] Ajouter version
-[ ] Ajouter sources
-[ ] Ajouter sections
+[x] Ajouter métadonnées
+[x] Ajouter version
+[x] Ajouter sources
+[x] Ajouter sections
 [ ] Ajouter recherche avancée
 
 ---
 
 ## PHASE 5 — RAG
 
-[ ] Retrieval
+[x] Retrieval
 [ ] Chunking
 [ ] Recherche sémantique
-[ ] Filtrage par méthode
-[ ] Context injection
-[ ] Sources dans les réponses
+[x] Filtrage par méthode
+[x] Context injection
+[x] Sources dans les réponses
 
 ---
 
 ## PHASE 6 — IA
 
-[ ] Prompt système robuste
-[ ] Détection méthode
+[x] Prompt système robuste
+[x] Détection méthode
 [ ] Détection sujet
 [ ] Questions de clarification
 [ ] Réponses contextualisées
@@ -619,10 +628,10 @@ Checklist :
 
 ## PHASE 7 — 3D
 
-[ ] Refactor moteur 3D
-[ ] Modèles plus réalistes
+[x] Refactor moteur 3D
+[x] Modèles plus réalistes
 [ ] Animations pédagogiques
-[ ] Interaction
+[x] Interaction
 [ ] Étapes synchronisées
 [ ] Légendes
 [ ] Responsive
@@ -633,14 +642,14 @@ Checklist :
 
 Ajouter progressivement :
 
-[ ] checklist inspection
-[ ] notes
-[ ] photos
-[ ] observations
-[ ] indications
-[ ] historique
-[ ] génération rapport
-[ ] export PDF
+[x] checklist inspection
+[x] notes
+[x] photos
+[x] observations
+[x] indications
+[x] historique
+[x] génération rapport
+[x] export PDF
 
 ---
 
@@ -793,3 +802,132 @@ PROTOTYPE
 → PLATEFORME AQCS
 
 Chaque modification doit rapprocher le projet de cet objectif.
+
+---
+
+# 26. JOURNAL DES MODIFICATIONS
+
+## v1.1 — 2026-11-03
+
+Sauvegarde des fichiers d'origine : _backup-2026-11-03/
+
+### Sécurité (P0)
+- server.mjs ne sert plus que les fichiers de l'application (liste fixe). .env, .git, server.mjs, zip, scripts de test : 404.
+- Prompt système uniquement côté serveur ; les champs "system" / "context" envoyés par le navigateur sont ignorés.
+- Périmètre de l'IA limité à l'inspection par défaut (AI_SCOPE=inspection ; AI_SCOPE=open pour tout autoriser).
+- Limitation de débit séparée connexion / questions, compatible proxy Render (TRUST_PROXY), mémoire nettoyée.
+- En-têtes de sécurité HTTP, corps de requête limité à 6 Mo, erreurs fournisseur IA explicites (clé refusée, modèle absent, quota, délai).
+- Comptes multiples avec rôles : CYCLOPS_USERS="nom:motdepasse:role,…" (inspector, supervisor, admin). L'ancien CYCLOPS_USERNAME / CYCLOPS_PASSWORD fonctionne toujours (rôle admin).
+- HOST=127.0.0.1 pour garder CYCLOPS sur ce seul ordinateur.
+
+### Base de connaissances (Phases 4-5)
+- kb.mjs : découpe les procédures, cours et références ASME en passages étiquetés (AQCS / AQCS projet / Référence code / Guide CYCLOPS) ; version calculée automatiquement.
+- Dossier documents/ pour les procédures AQCS réelles (voir documents/README.md et l'exemple PT).
+- POST /api/kb/reload (admin) recharge la base sans redémarrer.
+
+### Assistant (Phase 6)
+- Sources affichées sous chaque réponse, avec une couleur par type.
+- Langue imposée, limite de longueur portée à 1200 tokens (AI_MAX_TOKENS), avertissement si la réponse est coupée.
+- La « Photo analysis » de la page d'accueil ne prétend plus reconnaître l'image : simple suggestion d'après le nom du fichier + bouton pour envoyer la photo à l'assistant.
+
+### Outils inspecteur (Phase 8)
+- Bouton « Inspections terrain » : missions, informations, checklist par méthode (OK / Non OK / N/A + commentaire), indications guidées par méthode, photos, notes, avis IA (jamais une décision), conclusion, rapport imprimable / PDF, export / import de mission.
+- Données stockées sur l'appareil (IndexedDB), fonctionnent sans réseau.
+
+### Terrain
+- Application installable (PWA) et utilisable hors ligne (sw.js, manifest, icônes). Nécessite HTTPS ou localhost.
+- « Mode terrain » : thème clair à fort contraste, boutons plus grands.
+
+### Qualité
+- npm test : 7 tests serveur (fichiers protégés, connexion, cookie falsifié, prompt non modifiable, langue, sources, rôles, limitation).
+- npm run check : vérification de syntaxe de tous les fichiers JS.
+
+## v1.2 — 2026-11-03
+
+### UT — Simulateur de détecteur de défauts (Phase 7 / formation)
+- Nouveau fichier cyclops-utsim.js, affiché sous la page UT (bloc « Simulateur de détecteur de défauts »).
+- A-scan simulé : palpeur 0° / 45° / 60° / 70°, gain (réf. + dB), base de temps, porte A, courbe DAC et 20 % DAC, déplacement du palpeur (vers la soudure et le long), balayage automatique.
+- Lectures : parcours, profondeur, distance en surface, position depuis l'axe, amplitude, dB / DAC, n° de parcours ; coupe de la soudure avec faisceau et position du réflecteur ; dynamique d'écho.
+- Bibliothèque de 9 indications (fissure, manque de fusion, manque de pénétration, soufflure, nid de soufflures, laitier, géométrie de racine, caniveau, dédoublure) : aspect à l'écran + situation « Refusé » et « Non refusé » avec la raison.
+- Exercice d'entraînement : indication cachée aléatoire, l'inspecteur choisit le type et la décision, score.
+- Règles d'acceptation = règles de formation (inspirées ASME VIII App. 12, SA-578, UW-35), clairement signalées « à vérifier ». Modèle physique simplifié, pas un appareil étalonné.
+- Mode « Tracer la DAC » : 11 étapes guidées sur bloc d'étalonnage (trous génératrices T/4, T/2, 3T/4) : étalonnage base de temps, mise en place, 6 points (1er et 2e parcours) relevés par l'inspecteur avec contrôles (bon trou, écho maximisé, 80 % écran, gain de référence inchangé), tracé DAC + 50 % + 20 %, fiche d'étalonnage, correction de transfert, gain de balayage, vérifications périodiques (ASME V Art. 4, à vérifier).
+
+### RT — Interprétation des radiogrammes (animation)
+- Nouveau fichier cyclops-rtsim.js, affiché sous la page RT (bloc « Interprétation des radiogrammes »).
+- Animation en 11 étapes sur négatoscope (lecture, pause, précédent / suivant, voix FR/EN) : conditions d'observation, identification, repères et couverture, repère « B », densité (densitomètre, plages −15 % / +30 %), IQI (fil essentiel), défauts de film, examen méthodique à la loupe, caractérisation, mesure et critères, décision et rapport.
+- Atlas de 10 indications sur film (fissure, manque de fusion, manque de pénétration, soufflure, nid, laitier, tungstène, caniveau, retassure, excès de pénétration), chacune avec un cas « Refusé » et « Non refusé » et la raison.
+- Valeurs = règles de formation (ASME V T-282 / T-276, ASME VIII UW-51, Annexe 4, UW-35), signalées « à vérifier ». Images dessinées, pas de vrais radiogrammes.
+
+### 3D — Rendu réaliste WebGL (Phase 7)
+- Nouveau moteur cyclops-gl.js basé sur Three.js r170 (copié dans vendor/, fonctionne hors ligne). Il reprend exactement l'API du moteur canvas (box, cyl, sph, ln, quad, txt, hud) : toutes les scènes, les ~40 modèles d'équipement et le cours passent en WebGL sans réécriture.
+- Matériaux PBR (acier brossé, peinture industrielle, caoutchouc, cuivre, verre, Perspex, cordon de soudure strié, ZAT colorée), environnement studio (réflexions), ombres douces, sol d'atelier, anticrénelage, tone mapping ACES.
+- Géométrie détaillée : arêtes arrondies, écrous, brides boulonnées ; traducteur UT (sabot, connecteur, câble) + détecteur portable avec A-scan ; yoke MT (bobines cuivre, pattes articulées, poignée) ; projecteur gamma, collimateur, balisage RT ; pont roulant (poteaux H, chemins, poutre caisson, chariot, moufle) ; armoire électrique (porte, joint, rails, disjoncteurs) ; réservoir (fonds elliptiques, soudures, piquage à bride, soupape, manomètre, berceaux).
+- Interaction : caméra amortie (orbite, zoom, recentrage fluides), survol = surbrillance + nom, clic = fiche d'inspection + zoom sur la pièce, boutons 🧩 Éclater et ✂ Coupe.
+- Performance : un seul contexte WebGL partagé, géométries en cache, résolution dynamique, rendu suspendu hors écran ou derrière une fenêtre, libération automatique des vues fermées. 60 im/s mesurés sur bureau et mobile.
+- Repli automatique sur l'ancien moteur canvas si WebGL n'est pas disponible.
+- Corrigé : erreur des particules MT au démarrage d'une phase de magnétisation (index négatif).
+
+### Formateur IA ASME/API
+- Nouveau fichier cyclops-study.js + bouton « 🎓 Formateur ASME/API » dans l'en-tête.
+- Contenu : « Simple ASME & API Study Guide » (B31.3, API 650, API 510, B16.5, aperçus sections V et IX) découpé en 10 leçons FR/EN + examen final de 12 questions.
+- Le formateur 3D explique chaque leçon (texte tapé, voix en option), résume les points clés, propose des calculateurs (durée de vie restante, vitesse de corrosion, °C/°F), pose une question de vérification, mémorise la progression sur l'appareil.
+- « Demander au formateur » : /api/ask en mode « teacher » (consignes pédagogiques ajoutées côté serveur uniquement, passages du guide privilégiés et cités). Sans IA : réponse hors ligne tirée du guide.
+- Base de connaissances : nouveau type de source « Guide d'étude ASME/API » (résumé pédagogique, édition à vérifier), aussi utilisable par l'assistant principal. Nouveau test serveur (8 tests).
+- Constat : le modèle NVIDIA actuel (llama-3.2-90b-vision) est trop lent sur l'offre gratuite pour les réponses longues (délai dépassé) ; à revoir (autre modèle ou clé Anthropic).
+
+### Académie CYCLOPS — phase 5 (simulateur de scénarios d'inspection)
+- Nouveau fichier cyclops-scenarios.js, onglet « 🧪 Scénarios » dans l'Académie.
+- 8 travaux complets FR/EN, 6 à 8 étapes chacun : UT soudure de tuyauterie 20 mm, revue de radiogramme RT, MT console de pont roulant, PT bride inox, VT soudure bout à bout, inspection périodique d'un réservoir d'air (APVG), examen d'un pont roulant 10 t (APL), vérification d'une armoire 400 V (APE).
+- Types d'étapes : objectif, choix du matériel (sélection multiple avec intrus), choix de la technique, ordre des opérations (ressuage, consignation), étalonnage pratique (écho de référence à 80 % au gain, gain de départ aléatoire), calculs (bond, profondeur, densité, vitesse de corrosion, charge d'essai…), interprétation d'images des simulateurs (A-scan UT, film RT, ressuage PT), décision finale.
+- Explication après chaque étape ; débriefing final : score, chaque erreur avec la bonne réponse et le pourquoi, liens « revoir le module / simulateur / leçon ASME-API / dictionnaire », question au tuteur IA. Options mélangées à chaque tentative.
+- Valeurs et règles d'acceptation = exemples de formation signalés (ASME V/VIII, ISO 4309, IEC 60364-6, ASME B30.10 à vérifier) ; pas de vraies procédures.
+- Académie : niveau 4 « 3 scénarios terminés », niveau 5 « 80 % aux 8 scénarios », succès « Stagiaire prêt pour le terrain », +20 XP par scénario à 80 %, statistiques.
+
+### Académie CYCLOPS — phase 4 (défis techniques)
+- Nouveau fichier cyclops-challenges.js, onglet « ⚡ Défis » dans l'Académie.
+- Défi du jour : 5 questions identiques pour tous à une date donnée (calcul, image de défaut, connaissances, scénario, question plus difficile), score enregistré une fois par jour.
+- Entraînement illimité par catégorie avec difficulté adaptative ★1–★5 (2 bonnes réponses → plus dur, 1 erreur → plus facile).
+- 15 générateurs de calculs à valeurs aléatoires (d = v·t/2, profondeur 1er/2e parcours, distance en surface, bond, gain dB, écart dB, inverse du carré, décroissance Ir-192, vitesse de corrosion/durée de vie, °C/°F, charge d'essai, épreuve hydraulique, loi de Snell, erreur d'étalonnage), images de défauts (A-scan UT, film RT, ressuage PT), ~70 questions issues des leçons, 18 scénarios réalistes (8 domaines). Explication après chaque réponse.
+- Académie : niveau 4 « 3 défis du jour », niveau 5 « 10 réussites ★4–★5 », 2 succès, XP (+15 par défi du jour, +2 par bonne réponse).
+
+### Académie CYCLOPS — phase 3 (simulateurs enrichis)
+- UT : mode « 🔬 Explorer » : matériau (acier, inox austénitique, aluminium, fonte, cuivre, vitesses L/T réelles), vitesse réglée sur l'appareil, épaisseur, angle, réflecteur. Physique : parcours affiché = parcours réel × V appareil / V matériau ; angle réel par la loi de Snell ; atténuation illustrative. Faisceau réel (bleu) et supposé par l'appareil (pointillé), liste « Pourquoi ? » chiffrée. Les autres modes restent en acier.
+- Nouveau fichier cyclops-surfsim.js : simulateur MT (yoke déplaçable/orientable, CA/CC, particules, matériau, 4 fissures cachées dont une sous-jacente, explication par fissure) et simulateur PT (nettoyage, type, temps de pénétration, élimination, révélateur, temps de révélation, éclairage/UV ; résultat expliqué par défaut, fausses indications, score).
+- Académie : liens « Essayer » des modules vers les simulateurs ; niveau 2 : trouver les 4 fissures MT + 100 % au PT ; niveau 3 : expérimenter UT Explorer.
+
+### Académie CYCLOPS — phase 2 (Académie CND)
+- Nouveau fichier cyclops-ndt-academy.js, onglet « 🎓 Académie CND » dans l'Académie.
+- 30 modules FR/EN : UT (9 : principe, propagation, traducteurs, faisceaux droits/angle, couplant, blocs, A-scan, calculs de parcours, reconnaissance des défauts), RT (6), MT (5), PT (5), VT (5).
+- Chaque module : schéma technique animé (impulsions, rayons, lignes de champ, capillarité, éclairage…), explication pas à pas, points clés, question avec explication, liens dictionnaire / simulateur / 3D, tuteur IA débutant.
+- Module « calculs de parcours » interactif (angle, épaisseur, parcours → profondeur, distance, parcours n°, bond, formule affichée).
+- Niveau 2 : modules VT, PT, MT exigés ; niveau 3 : modules UT et RT exigés ; +8 XP par module.
+
+### Académie CYCLOPS — phase 1 (école d'inspection pour débutants)
+- Nouveau fichier cyclops-academy.js + bouton « 🏫 Académie ».
+- Parcours en 5 niveaux débloqués progressivement (débutant absolu → défis professionnels), construits avec les modules existants (cours par méthode, simulateurs UT/RT, quiz, formateur ASME/API).
+- 6 leçons « débutant absolu » FR/EN avec question de vérification ; labo 3D par département (CND, APVG, APL, APE) ; dictionnaire visuel de 50 termes (définition simple + technique + exemple + lien 3D / A-scan / film / leçon).
+- Gamification : XP, série de jours, 10 succès, statistiques, attestations imprimables (pas une qualification ISO 9712). Progression sur l'appareil.
+- Tuteur IA « 🧒 Explique-moi comme à un débutant » : mode beginner côté serveur adapté au niveau 1–5 (borné), puce dans l'assistant. Nouveau test serveur (9 tests).
+- Événements « cy-learn » ajoutés aux simulateurs UT/RT, au quiz et à l'ouverture des équipements 3D.
+- Phases suivantes prévues : 2) modules CND Academy détaillés, 3) simulateurs enrichis (UT épaisseur/vitesse + « pourquoi », MT, PT), 4) défis quotidiens, 5) scénarios d'inspection.
+
+### Publication cloud (CYCLOPSAQCS)
+- render.yaml : service « cyclopsaqcs » (adresse prévue https://cyclopsaqcs.onrender.com), région Francfort, IA Claude (AI_PROVIDER=anthropic, ANTHROPIC_API_KEY à saisir sur Render), comptes CYCLOPS_USERS obligatoires, SESSION_SECRET généré.
+- Application installable renommée « CYCLOPSAQCS » (manifest). Version 1.2.0, package-lock régénéré (npm ci validé).
+- Dépôt GitHub privé « cyclopsaqcs » à publier avec GitHub Desktop ; .claude/ exclu du dépôt.
+
+### IA
+- Modèle NVIDIA par défaut : meta/llama-3.2-90b-vision-instruct (mistral-large-2-instruct et llama-3.2-11b-vision ne sont plus servis par NVIDIA : erreur 404).
+
+---
+
+# 27. RESTE À FAIRE (prochaines étapes)
+
+1. Saisir les procédures AQCS réelles dans documents/ (une méthode d'abord, PT ou UT). C'est la priorité : sans elles, l'assistant ne peut citer que le guide général.
+2. Choisir l'hébergement des données partagées (base de données) pour synchroniser les inspections entre tablettes et permettre la validation par un superviseur. Aujourd'hui les inspections restent sur l'appareil (export / import manuel).
+3. Choisir un modèle IA plus performant (gros modèle NVIDIA ou Claude) et tester avec de vraies questions d'inspecteurs.
+4. Intégrer l'app de calcul UT existante comme module UT de CYCLOPS.
+5. Quiz : générer les questions depuis la base documentaire et suivre les scores par utilisateur.
+6. Découper cyclops3D.js (moteur 3D / assistant / cours) en modules séparés.
+7. Sur Render (offre gratuite), data/audit.jsonl est effacé à chaque redémarrage : prévoir un stockage persistant si l'audit doit être conservé.

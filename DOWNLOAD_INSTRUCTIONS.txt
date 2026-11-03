@@ -1,17 +1,12 @@
-CYCLOPS PROJECT DOWNLOAD
+CYCLOPS — HOW TO START
 
-1. Download CYCLOPS-Project.zip from this project folder.
-2. Extract the ZIP to any folder on your computer.
-3. Open a PowerShell window inside the extracted folder.
-4. Run:
+1. Install Node.js (LTS) from https://nodejs.org if it is not already installed.
+2. Double-click Start-CYCLOPS.bat in the CYCLOPS folder.
+3. The first time, paste your NVIDIA API key (starts with nvapi-) when asked.
+   It is saved in the private .env file, so you are only asked once.
+   Press Enter instead to run without AI (offline answers from the procedures).
+4. The browser opens http://127.0.0.1:4173/ automatically.
+   Do not open index.html by double-clicking it: it only works through the server.
 
-   .\Start-CYCLOPS.ps1
-
-5. Open http://127.0.0.1:4173/ in your browser.
-
-Requirements:
-- Node.js
-- PowerShell
-- NVIDIA API key for AI responses
-
-The project contains the browser interface, 3D procedure visualizations, quiz, search, server, and automated launcher.
+To stop CYCLOPS, close the black window.
+To change the AI key, edit or delete the .env file and start again.

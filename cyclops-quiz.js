@@ -214,6 +214,7 @@
   }
   function renderResults() {
     const percentage = Math.round(score / questions.length * 100);
+    window.dispatchEvent(new CustomEvent('cy-learn', { detail: { id: 'quiz:' + selectedLevel, score: percentage } }));
     root.querySelector('[data-quiz-results-title]').textContent = L('Quiz complete', 'Quiz terminé');
     root.querySelector('[data-quiz-score]').textContent = score + ' / ' + questions.length;
     root.querySelector('[data-quiz-summary]').textContent = percentage + '% · ' + LEVELS[selectedLevel][isFrench() ? 1 : 0] + ' · ' + L('Methods: ', 'Méthodes : ') + [...new Set(questions.map((q) => q.method))].join(', ');

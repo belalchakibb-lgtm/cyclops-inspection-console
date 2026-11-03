@@ -1,0 +1,23 @@
+{
+  "id": "AQCS-PT-001",
+  "title": "Contrôle par ressuage — procédure AQCS",
+  "method": "PT",
+  "version": "1",
+  "revision": "A",
+  "status": "draft",
+  "source": "AQCS — procédure interne",
+  "effectiveDate": "2026-01-01",
+  "lang": "fr",
+  "sections": [
+    {
+      "id": "1",
+      "title": "Objet et domaine d'application",
+      "content": "EXEMPLE — remplacer par le texte réel de la procédure AQCS.\n\nUn paragraphe par idée : chaque paragraphe devient un passage que l'assistant peut citer."
+    },
+    {
+      "id": "5.2",
+      "title": "Temps de pénétration",
+      "content": "EXEMPLE — recopier ici la valeur et les conditions exactes de la procédure approuvée."
+    }
+  ]
+}
