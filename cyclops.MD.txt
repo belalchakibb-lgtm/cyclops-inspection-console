@@ -876,6 +876,13 @@ Sauvegarde des fichiers d'origine : _backup-2026-11-03/
 - Base de connaissances : nouveau type de source « Guide d'étude ASME/API » (résumé pédagogique, édition à vérifier), aussi utilisable par l'assistant principal. Nouveau test serveur (8 tests).
 - Constat : le modèle NVIDIA actuel (llama-3.2-90b-vision) est trop lent sur l'offre gratuite pour les réponses longues (délai dépassé) ; à revoir (autre modèle ou clé Anthropic).
 
+### IA toujours connectée (chaîne de secours)
+- Constat : le modèle NVIDIA llama-3.2-90b-vision ne répondait plus (délai dépassé à 40 s même pour une phrase) ; sur Render, le Blueprint forçait Anthropic sans clé NVIDIA → IA coupée sans clé Claude.
+- server.mjs : chaîne de modèles. Toutes les clés renseignées sont utilisées (Claude d'abord si sa clé existe, puis NVIDIA). Modèles NVIDIA par défaut, testés : nemotron-3.5-super-vl-120b (≈2 s, compatible photos), minimax-m3.1-flash (≈9 s), nemotron-3.5-lightning-30b. Si un modèle échoue (délai, 404, 429, 5xx, réponse vide), le suivant répond aussitôt ; le modèle en panne est mis en pause (2 min, 1 h si indisponible pour la clé). Délai par modèle 25 s, total 60 s. Réflexion désactivée (enable_thinking: false), balises <think> retirées. Questions avec photo : seulement les modèles vision.
+- Nouveau /api/ai-check : vrai test de connexion (mis en cache 5 min) ; le badge affiche « IA connectée · fournisseur » seulement après une vraie réponse.
+- Navigateur : une nouvelle tentative automatique (coupure réseau, serveur cloud en réveil, 502/504) pour l'assistant et le formateur ASME/API ; reconnexion automatique toutes les 30 s quand l'IA est coupée ; ping /api/health toutes les 4 min tant que CYCLOPS est ouvert (évite la mise en veille du serveur gratuit pendant l'utilisation).
+- render.yaml : NVIDIA_API_KEY et NVIDIA_MODELS ajoutés, AI_PROVIDER retiré (ordre automatique). .env.example mis à jour. Nouveau test serveur (10 tests).
+
 ### Académie CYCLOPS — phase 5 (simulateur de scénarios d'inspection)
 - Nouveau fichier cyclops-scenarios.js, onglet « 🧪 Scénarios » dans l'Académie.
 - 8 travaux complets FR/EN, 6 à 8 étapes chacun : UT soudure de tuyauterie 20 mm, revue de radiogramme RT, MT console de pont roulant, PT bride inox, VT soudure bout à bout, inspection périodique d'un réservoir d'air (APVG), examen d'un pont roulant 10 t (APL), vérification d'une armoire 400 V (APE).

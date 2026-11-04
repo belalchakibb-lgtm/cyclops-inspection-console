@@ -287,6 +287,8 @@
       syncLabels();
       render();
       fetch('/api/health', { cache: 'no-store' }).then((response) => response.json()).then((status) => { document.getElementById('logout').hidden = !status.authEnabled; }).catch(() => {});
+      // keep-alive: while CYCLOPS is open on screen, a tiny ping every 4 minutes stops a free cloud server from going to sleep
+      setInterval(() => { if (document.visibilityState === 'visible' && navigator.onLine) fetch('/api/health', { cache: 'no-store' }).catch(() => {}); }, 240000);
     }());
   </script>
 </body>

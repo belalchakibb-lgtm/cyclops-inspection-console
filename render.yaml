@@ -14,16 +14,20 @@ services:
         value: 24.21.0
       - key: TRUST_PROXY
         value: "1"
-      - key: AI_PROVIDER
-        value: anthropic
+      # Every key that is filled in is used: if one AI fails, the next one answers automatically.
+      # Claude is tried first when its key is set, then the NVIDIA models.
       - key: ANTHROPIC_API_KEY
         sync: false
       - key: ANTHROPIC_MODEL
         value: claude-sonnet-5-5
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: NVIDIA_MODELS
+        value: nvidia/nemotron-3.5-super-vl-120b-a12b,minimaxai/minimax-m3.1-flash,nvidia/nemotron-3.5-lightning-30b-a3b
       - key: AI_MAX_TOKENS
         value: 1200
       - key: AI_TIMEOUT_MS
-        value: 45000
+        value: 60000
       - key: AI_SCOPE
         value: inspection
       - key: CYCLOPS_USERS

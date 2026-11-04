@@ -343,7 +343,10 @@ html.field .cyst-msg.t { background: #eef5ff; } html.field .cyst-msg.u { backgro
     const l = st.exam ? null : lesson();
     const question = l ? q + '\n\n[' + L('Current lesson', 'Leçon en cours') + ': ' + T2(l.title) + ' — ' + S.source + ']' : q;
     try {
-      const r = await fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ q: question, lang: L('en', 'fr'), method: 'OTH', mode: 'teacher', history: st.history.slice(-6) }) });
+      // one automatic retry after a network drop or a busy AI (502/504); the server already tries every model
+      const post = () => fetch('/api/ask', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ q: question, lang: L('en', 'fr'), method: 'OTH', mode: 'teacher', history: st.history.slice(-6) }) });
+      let r = await post().catch(() => null);
+      if (!r || r.status === 502 || r.status === 504) { await new Promise((res) => setTimeout(res, 2500)); r = await post(); }
       const data = await r.json().catch(() => ({}));
       if (!r.ok || !data.answer) throw new Error(data.error || ('HTTP ' + r.status));
       wait.parentElement.remove();

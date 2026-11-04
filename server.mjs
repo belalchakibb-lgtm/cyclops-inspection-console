@@ -21,15 +21,27 @@ const envFileStatus = (() => {
   }
 })();
 const port = Number(process.env.PORT || 4173);
-const provider = process.env.AI_PROVIDER === 'anthropic' ? 'anthropic' : process.env.NVIDIA_API_KEY ? 'nvidia' : process.env.ANTHROPIC_API_KEY ? 'anthropic' : 'nvidia';
-const model = provider === 'nvidia'
-  ? process.env.NVIDIA_MODEL || 'meta/llama-3.2-90b-vision-instruct'
-  : process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5';
-const providerLabel = provider === 'nvidia' ? 'NVIDIA NIM' : 'Anthropic';
-const apiKey = () => (provider === 'nvidia' ? process.env.NVIDIA_API_KEY : process.env.ANTHROPIC_API_KEY) || '';
+// ---------- AI providers: a fallback chain so the assistant stays connected ----------
+// Every configured key adds its models; AI_PROVIDER only chooses which provider is tried first.
+// A model that fails is skipped for a while (cool-down) so the next questions go straight to a working one.
+const NVIDIA_DEFAULT_MODELS = ['nvidia/nemotron-3.5-super-vl-120b-a12b', 'minimaxai/minimax-m3.1-flash', 'nvidia/nemotron-3.5-lightning-30b-a3b'];
+const VISION_MODELS = /(^claude-)|vision|-vl-|omni/i;
+const csv = (value) => String(value || '').split(',').map((s) => s.trim()).filter(Boolean);
+const aiChain = (() => {
+  const nvidia = process.env.NVIDIA_API_KEY ? [...new Set([...csv(process.env.NVIDIA_MODEL), ...(csv(process.env.NVIDIA_MODELS).length ? csv(process.env.NVIDIA_MODELS) : NVIDIA_DEFAULT_MODELS)])]
+    .map((model) => ({ kind: 'nvidia', label: 'NVIDIA NIM', model, key: () => process.env.NVIDIA_API_KEY })) : [];
+  const anthropic = process.env.ANTHROPIC_API_KEY ? [...new Set([process.env.ANTHROPIC_MODEL || 'claude-sonnet-5-5', ...csv(process.env.ANTHROPIC_FALLBACK_MODELS)])]
+    .map((model) => ({ kind: 'anthropic', label: 'Anthropic', model, key: () => process.env.ANTHROPIC_API_KEY })) : [];
+  const chain = process.env.AI_PROVIDER === 'nvidia' ? [...nvidia, ...anthropic] : process.env.AI_PROVIDER === 'anthropic' ? [...anthropic, ...nvidia] : [...anthropic, ...nvidia];
+  return chain.map((p) => ({ ...p, vision: VISION_MODELS.test(p.model), coolUntil: 0, lastError: '' }));
+})();
+const providerLabel = [...new Set(aiChain.map((p) => p.label))].join(' + ') || 'none';
+const model = aiChain[0] ? aiChain[0].model : '';
+const apiKey = () => (aiChain.some((p) => p.key()) ? 'set' : '');
 const maxBodyBytes = 6 * 1024 * 1024; // a resized JPEG from the assistant is well under this
 const maxGenerationTokens = Math.min(Math.max(Number(process.env.AI_MAX_TOKENS || process.env.NVIDIA_MAX_TOKENS || 1200), 200), 4000);
-const requestTimeoutMs = Number(process.env.AI_TIMEOUT_MS || 45000);
+const requestTimeoutMs = Number(process.env.AI_TIMEOUT_MS || 60000); // whole question, all fallbacks included
+const attemptTimeoutMs = Number(process.env.AI_ATTEMPT_TIMEOUT_MS || 25000); // one model
 const scopeMode = process.env.AI_SCOPE === 'open' ? 'open' : 'inspection';
 const trustProxy = process.env.TRUST_PROXY === '1' || process.env.RENDER === 'true';
 const auditEnabled = process.env.AUDIT_LOG !== 'off';
@@ -288,43 +300,82 @@ async function answer(request, response, session) {
   }) : [];
   while (history.length && history[0].role !== 'user') history.shift();
 
-  let providerResponse;
-  try {
-    const endpoint = process.env.AI_BASE_URL || (provider === 'nvidia' ? 'https://integrate.api.nvidia.com/v1/chat/completions' : 'https://api.anthropic.com/v1/messages');
-    const headers = provider === 'nvidia'
-      ? { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey()}` }
-      : { 'Content-Type': 'application/json', 'x-api-key': apiKey(), 'anthropic-version': '2023-06-01' };
-    const body = provider === 'nvidia'
-      ? { model, max_tokens: maxGenerationTokens, temperature: 0.1, messages: [
-          { role: 'system', content: system }, ...history,
-          { role: 'user', content: image ? [{ type: 'text', text: question }, { type: 'image_url', image_url: { url: `data:${image.mediaType};base64,${image.data}` } }] : question }
-        ] }
-      : { model, max_tokens: maxGenerationTokens, system, messages: [
-          ...history,
-          { role: 'user', content: image ? [{ type: 'text', text: question }, { type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } }] : question }
-        ] };
-    providerResponse = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(requestTimeoutMs) });
-  } catch (error) {
-    console.error('AI provider request failed:', (error && error.name) || 'Error');
-    const timedOut = error && error.name === 'TimeoutError';
-    return json(response, timedOut ? 504 : 502, { error: timedOut ? 'The AI provider took too long to answer. Try again.' : 'Could not reach the AI provider. Check the server logs and provider availability.', sources: publicSources });
+  const result = await askChain({ system, history, question, image });
+  if (!result.text) {
+    const status = result.timedOut ? 504 : 502;
+    return json(response, status, { error: result.timedOut ? 'The AI took too long to answer. Try again.' : `The AI is temporarily unavailable (${result.reason}). Offline answers are shown meanwhile.`, sources: publicSources });
   }
+  audit({ event: 'ask', user: session.user, method, lang, question: question.slice(0, 500), image: Boolean(image), sources: passages.map((p) => `${p.type}:${p.source}`), kbVersion: kb.version, model: result.model, answerChars: result.text.length });
+  return json(response, 200, { answer: result.text, model: result.model, provider: result.label, sources: publicSources, kbVersion: kb.version, truncated: result.truncated });
+}
 
-  const result = await providerResponse.json().catch(() => ({}));
-  if (!providerResponse.ok) {
-    console.warn(`AI provider returned HTTP ${providerResponse.status}.`);
-    const status = providerResponse.status;
-    const hint = status === 401 || status === 403 ? 'The API key was refused.' : status === 404 ? 'The model name is not available for this key.' : status === 429 ? 'The provider rate limit was reached; wait and retry.' : 'Check the model and API key configuration.';
-    return json(response, 502, { error: `The AI provider returned HTTP ${status}. ${hint}`, sources: publicSources });
+// One request to one model. Returns { text, truncated } or throws an Error with .status / .name.
+async function callModel(p, { system, history, question, image }, timeoutMs) {
+  const nvidia = p.kind === 'nvidia';
+  const endpoint = process.env.AI_BASE_URL || (nvidia ? 'https://integrate.api.nvidia.com/v1/chat/completions' : 'https://api.anthropic.com/v1/messages');
+  const headers = nvidia
+    ? { 'Content-Type': 'application/json', Authorization: `Bearer ${p.key()}` }
+    : { 'Content-Type': 'application/json', 'x-api-key': p.key(), 'anthropic-version': '2023-06-01' };
+  const body = nvidia
+    ? { model: p.model, max_tokens: maxGenerationTokens, temperature: 0.1, chat_template_kwargs: { enable_thinking: false }, messages: [
+        { role: 'system', content: system }, ...history,
+        { role: 'user', content: image ? [{ type: 'text', text: question }, { type: 'image_url', image_url: { url: `data:${image.mediaType};base64,${image.data}` } }] : question }
+      ] }
+    : { model: p.model, max_tokens: maxGenerationTokens, system, messages: [
+        ...history,
+        { role: 'user', content: image ? [{ type: 'text', text: question }, { type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } }] : question }
+      ] };
+  const res = await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs) });
+  const result = await res.json().catch(() => ({}));
+  if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status });
+  const raw = nvidia
+    ? String(result.choices?.[0]?.message?.content || '')
+    : (result.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+  const text = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').trim(); // some models put their reasoning in the answer
+  if (!text) throw new Error('empty answer');
+  return { text, truncated: nvidia ? result.choices?.[0]?.finish_reason === 'length' : result.stop_reason === 'max_tokens' };
+}
+
+// Tries each available model in order until one answers, within the overall time budget.
+async function askChain(request) {
+  const started = Date.now(), now = () => Date.now();
+  let candidates = aiChain.filter((p) => p.key() && (!request.image || p.vision));
+  if (!candidates.length) return { reason: request.image ? 'no image-capable model is configured' : 'no API key' };
+  // models in cool-down go last instead of being dropped: if everything failed recently we still try
+  candidates = [...candidates.filter((p) => p.coolUntil <= now()), ...candidates.filter((p) => p.coolUntil > now())];
+  let reason = '', timedOut = false;
+  for (const p of candidates) {
+    const left = requestTimeoutMs - (now() - started);
+    if (left < 3000) { timedOut = true; break; }
+    try {
+      const out = await callModel(p, request, Math.min(attemptTimeoutMs, left));
+      p.coolUntil = 0; p.lastError = '';
+      return { ...out, model: p.model, label: p.label };
+    } catch (error) {
+      const status = error.status || 0;
+      timedOut = error.name === 'TimeoutError';
+      reason = timedOut ? 'timeout' : status ? `HTTP ${status}` : error.message === 'empty answer' ? 'empty answer' : 'network error';
+      // not available for this key / key refused → long pause; slow or overloaded → short pause
+      p.coolUntil = now() + (status === 404 || status === 401 || status === 403 ? 3600_000 : status === 400 ? 600_000 : 120_000);
+      p.lastError = reason;
+      console.warn(`AI ${p.label} ${p.model} failed (${reason}); trying the next model.`);
+    }
   }
-  const text = provider === 'nvidia'
-    ? String(result.choices?.[0]?.message?.content || '').trim()
-    : (result.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim();
-  if (!text) return json(response, 502, { error: 'The AI provider returned an empty response.', sources: publicSources });
-  const truncated = provider === 'nvidia' ? result.choices?.[0]?.finish_reason === 'length' : result.stop_reason === 'max_tokens';
+  return { reason: reason || 'unavailable', timedOut };
+}
 
-  audit({ event: 'ask', user: session.user, method, lang, question: question.slice(0, 500), image: Boolean(image), sources: passages.map((p) => `${p.type}:${p.source}`), kbVersion: kb.version, model, answerChars: text.length });
-  return json(response, 200, { answer: text, model, provider: providerLabel, sources: publicSources, kbVersion: kb.version, truncated });
+// Live connection test for the status badge, cached so it costs at most one tiny request per few minutes.
+let aiCheck = { at: 0, result: null, pending: null };
+async function checkAi() {
+  if (aiCheck.result && Date.now() - aiCheck.at < (aiCheck.result.ok ? 300_000 : 30_000)) return aiCheck.result;
+  if (aiCheck.pending) return aiCheck.pending;
+  aiCheck.pending = (async () => {
+    const r = await askChain({ system: 'Reply with the single word OK.', history: [], question: 'ping' }).catch(() => ({ reason: 'error' }));
+    const result = r.text ? { ok: true, provider: r.label, model: r.model } : { ok: false, reason: r.reason || 'unavailable' };
+    aiCheck = { at: Date.now(), result, pending: null };
+    return result;
+  })();
+  return aiCheck.pending;
 }
 
 async function serveFile(request, response, file) {
@@ -365,6 +416,7 @@ export async function serve(request, response) {
     return json(response, 200, { version: kb.version, passages: kb.N, aqcsDocuments: kb.documentCount });
   }
   if (path === '/api/ask') return answer(request, response, session);
+  if (path === '/api/ai-check') return json(response, 200, apiKey() ? await checkAi() : { ok: false, reason: 'no API key' });
   if (path.startsWith('/api/')) return json(response, 404, { error: 'Not found.' });
   if (!['GET', 'HEAD'].includes(request.method)) return json(response, 405, { error: 'Method not allowed.' });
   if (!file) return json(response, 404, { error: 'Not found.' });
@@ -385,7 +437,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   }).listen(port, process.env.HOST || '0.0.0.0', () => {
     console.log(`CYCLOPS is running at http://localhost:${port}`);
     console.log(envFileStatus);
-    console.log(apiKey() ? `AI key found: ${providerLabel}, model ${model}. If answers fail, the browser shows the reason.` : 'AI key: none.');
+    console.log(apiKey() ? `AI connected through ${providerLabel}: ${aiChain.length} model(s), first ${model}; if one fails the next is used automatically.` : 'AI key: none.');
     console.log(`Knowledge base ${kb.version}: ${kb.N} passages, ${kb.documentCount} AQCS document(s).`);
     console.log(authConfigured ? `Sign-in enabled for ${users.size} account(s).` : 'Sign-in is OFF (local mode). Anyone who can reach this port can use CYCLOPS. Set HOST=127.0.0.1 to keep it on this computer only.');
     if (!apiKey()) console.log('AI is not connected. Set NVIDIA_API_KEY or ANTHROPIC_API_KEY and restart. The assistant will use offline answers.');
