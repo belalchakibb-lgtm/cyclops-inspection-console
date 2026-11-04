@@ -45,7 +45,9 @@
     const k = Math.sin(rad(s.angle)) * MATERIALS[s.mat || 'steel'].vs / STEEL_VS;
     return k >= 1 ? null : Math.asin(k);
   }
-  const attFactor = (s, S) => fromDb(-(MATERIALS[s.mat || 'steel'].att) * S / 100);
+  // attenuation values are given at the nominal 4 MHz; scattering grows with frequency (illustrative linear model)
+  const attFactor = (s, S) => fromDb(-(MATERIALS[s.mat || 'steel'].att) * ((s.freq || 4) / 4) * S / 100);
+  const fScale = (s) => 4 / (s.freq || 4); // pulse length scales with the period (1/f)
   const bevelX = (T, z) => 1 + (T - z) * TAN30; // single-V 60°, 2 mm root gap: fusion face position
 
   // ---------- Indication library ----------
@@ -335,7 +337,9 @@
         if (lat < 1e-4) continue;
         const sy = 0.85 * w;
         const cov = (0.5 * (erf((d.y2 - st.y) / sy) - erf((d.y1 - st.y) / sy))) / Math.max(1e-6, erf((d.y2 - d.y1) / 2 / sy));
-        const a = dac(S) * fromDb(d.dB + f.off) * ang * lat * cov * (st.angle === 0 ? 0.35 : 1) * attFactor(st, 2 * S);
+        // small round reflectors (pores) scatter more energy back at higher frequency (shorter wavelength); illustrative
+        const small = d.key === 'pore' || d.key === 'cluster' ? Math.min(1.6, Math.max(0.45, (st.freq || 4) / 4)) : 1;
+        const a = dac(S) * fromDb(d.dB + f.off) * ang * lat * cov * (st.angle === 0 ? 0.35 : 1) * attFactor(st, 2 * S) * small;
         if (a > 0.03) out.push({ s: S * k, a, w: d.shape === 'slag' ? 1.3 : 0.85 });
       }
     }
@@ -344,14 +348,14 @@
 
   // Screen trace (reference-gain amplitudes, no noise) sampled at n points over 0..range.
   function trace(st, d, n) {
-    const arr = new Float32Array(n), list = echoes(st, d);
+    const arr = new Float32Array(n), list = echoes(st, d), fs = fScale(st);
     for (let i = 0; i < n; i++) {
       const s = (i / (n - 1)) * st.range;
       let v = 0;
-      if (st.angle === 0 && s < 2.5) v = 120 * (1 - s / 2.5);
+      if (st.angle === 0 && s < 2.5 * fs) v = 120 * (1 - s / (2.5 * fs));
       for (const e of list) {
-        const u = (s - e.s) / e.w;
-        if (u > -4 && u < 4) v = Math.max(v, e.a * Math.exp(-u * u) * (0.62 + 0.38 * Math.abs(Math.cos(Math.PI * (s - e.s) / 0.8))));
+        const u = (s - e.s) / (e.w * fs);
+        if (u > -4 && u < 4) v = Math.max(v, e.a * Math.exp(-u * u) * (0.62 + 0.38 * Math.abs(Math.cos(Math.PI * (s - e.s) / (0.8 * fs)))));
       }
       arr[i] = v;
     }
@@ -407,7 +411,7 @@
     defect: null, exercise: null, score: { right: 0, total: 0 }, dac: null,
     mat: 'steel', vInst: null, xkey: 'pore'
   };
-  const steelSetup = () => { st.mat = 'steel'; st.vInst = null; };
+  const steelSetup = () => { st.mat = 'steel'; st.vInst = null; st.freq = 4; };
   // Explore mode: free experiments with material, instrument velocity, thickness and probe angle.
   const EXPLORE_TYPES = ['pore', 'none', 'crack', 'lof', 'ip', 'slag', 'cluster'];
   function newExplore() {
@@ -440,6 +444,10 @@
       else if (truth !== null) { const S = truth / Math.cos(real) * k, D = S * Math.cos(rad(st.angle)), leg = Math.floor(D / st.T); shown = leg % 2 === 0 ? D - leg * st.T : (leg + 1) * st.T - D; }
       out.push(L(`Velocity: the instrument converts time into distance with ${vCal(st)} m/s, but sound really travels at ${vMat(st)} m/s in this material. Every sound path is multiplied by ${k.toFixed(3)}${truth !== null ? `: a reflector really at ${truth.toFixed(1)} mm deep is shown at about ${shown.toFixed(1)} mm` : ''}. Fix: calibrate the range on a block of the same material (button "Calibrate on this material").`, `Vitesse : l’appareil convertit le temps en distance avec ${vCal(st)} m/s, mais le son va réellement à ${vMat(st)} m/s dans ce matériau. Chaque parcours est multiplié par ${k.toFixed(3)}${truth !== null ? ` : un réflecteur réellement à ${truth.toFixed(1)} mm de profondeur apparaît vers ${shown.toFixed(1)} mm` : ''}. Correction : étalonner la base de temps sur un bloc du même matériau (bouton « Étalonner sur ce matériau »).`));
     } else out.push(L(`Velocity: the instrument is calibrated with ${vCal(st)} m/s, the real velocity of this wave in the material, so the distances on screen are correct.`, `Vitesse : l’appareil est étalonné avec ${vCal(st)} m/s, la vitesse réelle de cette onde dans le matériau : les distances affichées sont justes.`));
+    {
+      const f = st.freq || 4, V = st.angle ? M.vs : M.vl, lam = V / (f * 1000), N = (10 * 10 * f * 1000) / (4 * M.vl);
+      out.push(L(`Frequency ${f} MHz: wavelength λ = V ÷ f = ${V} ÷ ${f} MHz ≈ ${lam.toFixed(2)} mm (${st.angle ? 'shear' : 'longitudinal'} wave). As a rule of thumb, reflectors smaller than about λ/2 (${(lam / 2).toFixed(2)} mm) are hard to detect. A higher frequency gives shorter pulses (better resolution — look at the echo width) and stronger echoes from small pores, but loses more energy in coarse-grained materials. Near field of a 10 mm crystal: N = D²·f ÷ 4V ≈ ${N.toFixed(0)} mm — echoes inside it can fluctuate.`, `Fréquence ${f} MHz : longueur d’onde λ = V ÷ f = ${V} ÷ ${f} MHz ≈ ${lam.toFixed(2)} mm (onde ${st.angle ? 'transversale' : 'longitudinale'}). En première approximation, les réflecteurs plus petits qu’environ λ/2 (${(lam / 2).toFixed(2)} mm) sont difficiles à détecter. Une fréquence plus haute donne des impulsions plus courtes (meilleure résolution — regardez la largeur de l’écho) et des échos plus forts sur les petits pores, mais perd plus d’énergie dans les matériaux à gros grains. Champ proche d’un cristal de 10 mm : N = D²·f ÷ 4V ≈ ${N.toFixed(0)} mm — les échos à l’intérieur peuvent fluctuer.`));
+    }
     if (M.att > 0) out.push(L(`Attenuation: ${M.n[0].toLowerCase()} scatters and absorbs sound (coarse grains). In this model the echo loses about ${M.att} dB per 100 mm travelled (there and back), so deep reflectors look smaller and may drop under the evaluation level. In practice: lower frequency, transfer correction, specific procedure.`, `Atténuation : ce matériau diffuse et absorbe le son (gros grains). Dans ce modèle, l’écho perd environ ${M.att} dB par 100 mm parcourus (aller-retour) : les réflecteurs profonds paraissent plus petits et peuvent passer sous le niveau d’évaluation. En pratique : fréquence plus basse, correction de transfert, procédure spécifique.`));
     return out;
   }
@@ -819,6 +827,7 @@ ${c.note ? `<p class="cyut-tip">${esc(T2(c.note))}</p>` : ''}
 <label>${L('Thickness', 'Épaisseur')} <b data-xv="T">${st.T}</b> mm<input type="range" data-x="T" min="8" max="60" step="1" value="${st.T}" style="width:100%"></label>
 <label>${L('Material (real sound velocity)', 'Matériau (vitesse réelle du son)')}<select data-x="mat">${Object.keys(MATERIALS).map((k) => `<option value="${k}"${k === st.mat ? ' selected' : ''}>${esc(T2(MATERIALS[k].n))} · L ${MATERIALS[k].vl} / T ${MATERIALS[k].vs} m/s</option>`).join('')}</select></label>
 <label>${L('Instrument velocity setting (m/s)', 'Vitesse réglée sur l’appareil (m/s)')}<input type="number" data-x="v" min="1000" max="7000" step="10" value="${vCal(st)}" style="width:100%;margin-top:3px;border:1px solid var(--line);border-radius:7px;background:#0b1530;color:var(--text);padding:7px;font:inherit"></label>
+<label>${L('Probe frequency', 'Fréquence du traducteur')}<select data-x="f">${[1, 2, 2.25, 4, 5, 10].map((f) => `<option value="${f}"${f === (st.freq || 4) ? ' selected' : ''}>${f} MHz</option>`).join('')}</select></label>
 <div class="cyut-row"><button type="button" data-act="calmat">🎯 ${L('Calibrate on this material', 'Étalonner sur ce matériau')}</button><button type="button" data-act="calsteel">↺ ${L('Steel calibration', 'Étalonnage acier')}</button></div>
 </div>
 <h4>💡 ${L('Why?', 'Pourquoi ?')}</h4><ul data-why>${whyExplore().map((t) => '<li>' + esc(t) + '</li>').join('')}</ul>
@@ -855,7 +864,7 @@ ${dc.points.length ? `<h4>${L('Calibration sheet', 'Fiche d’étalonnage')}${do
   }
   // Static A-scan of an indication type at its maximum echo (cards and Academy challenges); always on steel.
   function signature(cv, key, caseKey) {
-    const s = Object.assign({}, st, { mat: 'steel', vInst: null }); const d = makeDefect(key, caseKey || 'reject', false);
+    const s = Object.assign({}, st, { mat: 'steel', vInst: null, freq: 4 }); const d = makeDefect(key, caseKey || 'reject', false);
     s.T = d.T; s.angle = TYPES[key].probe === 0 ? 0 : 60; s.range = defaultRange(s); s.gateStart = 5; s.gateWidth = s.range - 5; s.gain = REF_GAIN + 2;
     autoPeak(s, d);
     drawAscan(cv, { st: s, d, small: true });
@@ -927,6 +936,7 @@ ${dc.points.length ? `<h4>${L('Calibration sheet', 'Fiche d’étalonnage')}${do
       if (k === 'mat') { st.mat = x.value; learn('ut-explore'); }
       if (k === 'v') { const v = +x.value; st.vInst = v > 500 ? v : null; learn('ut-explore'); }
       if (k === 'def') st.xkey = x.value;
+      if (k === 'f') { st.freq = +x.value; learn('ut-explore'); }
       if (e.type === 'change' || k === 'T') { newExplore(); syncControls(); if (k !== 'T') renderPanel(); else { const o = root.querySelector('[data-xv="T"]'); if (o) o.textContent = st.T; const wl = root.querySelector('[data-why]'); if (wl) wl.innerHTML = whyExplore().map((t) => '<li>' + esc(t) + '</li>').join(''); } }
       return;
     }

@@ -20,6 +20,7 @@ const S = {
   clip: new THREE.Plane(new THREE.Vector3(0, 0, -1), 1e6)   // section plane shared by all equipment materials (floor excluded)
 };
 const coarse = typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
+const reducedMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- shared renderer, environment and procedural textures ---------- */
 function shared() {
@@ -249,6 +250,7 @@ class R3GL {
     this.raycaster = new THREE.Raycaster();
     this.lights();
     this.floor();
+    this.hall();
     this.listen();
     S.instances.add(this);
     if (typeof IntersectionObserver !== 'undefined') { this.io = new IntersectionObserver((e) => { this.visible = e[0].isIntersecting; }); this.io.observe(cv); }
@@ -271,6 +273,37 @@ class R3GL {
     f.rotation.x = -Math.PI / 2; f.receiveShadow = true; f.renderOrder = -10;
     this.floorMesh = f; this.scene.add(f);
   }
+  // industrial hall around the scene: steel columns and beams, wall panels, painted floor walkway lines and
+  // ceiling light fittings. Static, low-poly, not clickable, never exploded or cut (no clipping on its materials).
+  hall() {
+    // one sub-group per side, so a wall can be hidden when the orbiting camera goes behind it
+    const g = new THREE.Group(), side = { back: new THREE.Group(), left: new THREE.Group(), right: new THREE.Group(), roof: new THREE.Group(), floor: new THREE.Group() };
+    Object.values(side).forEach((s) => g.add(s));
+    let into = side.floor;
+    const add = (geo, mat, x, y, z, ry) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); if (ry) m.rotation.y = ry; m.receiveShadow = true; into.add(m); return m; };
+    const steel = new THREE.MeshStandardMaterial({ color: 0x3d4654, metalness: 0.6, roughness: 0.55 });
+    const yellow = new THREE.MeshStandardMaterial({ color: 0xc9a227, metalness: 0.2, roughness: 0.6 });
+    const wall = new THREE.MeshStandardMaterial({ color: 0x232c3a, metalness: 0.15, roughness: 0.85 });
+    const rib = new THREE.MeshStandardMaterial({ color: 0x2c3646, metalness: 0.3, roughness: 0.7 });
+    const glow = new THREE.MeshBasicMaterial({ color: 0xfff3d6 });
+    const line = new THREE.MeshBasicMaterial({ color: 0xc9a227, transparent: true, opacity: 0.28 });
+    const R = 15, H = 9;
+    // back and side walls with vertical cladding ribs
+    for (const [k, x, z, ry, w] of [['back', 0, -R, 0, 2 * R], ['left', -R, 0, Math.PI / 2, 2 * R], ['right', R, 0, -Math.PI / 2, 2 * R]]) {
+      into = side[k];
+      add(new THREE.BoxGeometry(w, H, 0.2), wall, x, H / 2, z, ry);
+      for (let i = -w / 2 + 1; i < w / 2; i += 1.2) { const m = add(new THREE.BoxGeometry(0.12, H, 0.12), rib, 0, H / 2, 0, ry); const dx = Math.cos(ry) * i, dz = -Math.sin(ry) * i; m.position.set(x + dx + Math.sin(ry) * 0.12, H / 2, z + dz + Math.cos(ry) * 0.12); }
+    }
+    // portal frames: columns (with yellow safety paint at the base) stand with their wall; roof beams and lights form the roof
+    for (const z of [-R + 0.6, -6, 3]) for (const x of [-R + 0.6, R - 0.6]) { into = x < 0 ? side.left : side.right; add(new THREE.BoxGeometry(0.5, H, 0.5), steel, x, H / 2, z); add(new THREE.BoxGeometry(0.56, 1.2, 0.56), yellow, x, 0.6, z); }
+    into = side.roof;
+    for (const z of [-R + 0.6, -6, 3]) add(new THREE.BoxGeometry(2 * R, 0.6, 0.35), steel, 0, H - 0.3, z);
+    for (const z of [-10, -3]) for (const x of [-7, 0, 7]) add(new THREE.BoxGeometry(2.4, 0.08, 0.3), glow, x, H - 0.7, z); // emissive strips only: the studio lighting is unchanged
+    into = side.floor;
+    for (const x of [-7.5, 7.5]) { const m = add(new THREE.PlaneGeometry(0.1, 2 * R - 2), line, x, 0.006, -1); m.rotation.x = -Math.PI / 2; m.receiveShadow = false; }
+    g.traverse((o) => { o.castShadow = false; });
+    this.hallGroup = g; this.hallSide = side; this.hallR = R; this.hallH = H; this.scene.add(g);
+  }
   listen() {
     const cv = this.cv, pos = (e) => { const b = cv.getBoundingClientRect(); return [e.clientX - b.left, e.clientY - b.top]; };
     this.onMove = (e) => { this.mouse = pos(e); };
@@ -286,7 +319,11 @@ class R3GL {
   }
 
   /* ----- API used by the scenes ----- */
-  reset(c) { this.yaw = c.y; this.pit = c.p; this.dist = c.d; this.tg = c.t.slice(); this.sel = null; this.focus = null; }
+  reset(c) {
+    this.yaw = c.y; this.pit = c.p; this.dist = c.d; this.tg = c.t.slice(); this.sel = null; this.focus = null;
+    // cinematic fly-in: start wide and high, then glide to the framed view (skipped for reduced motion)
+    if (!reducedMotion) { this.view = { yaw: c.y + 0.85, pit: Math.min(1.15, c.p + 0.38), dist: c.d * 2.1, tg: c.t.slice() }; this.intro = performance.now(); }
+  }
   begin() {
     this.g = null; this.hud = null; this.texts.length = 0; this.used.length = 0; this.hint = null; this.tag = null; this.floorY = null; this.minY = Infinity;
     for (const p of this.pools.values()) p.used = 0;
@@ -420,7 +457,8 @@ class R3GL {
     if (this.hud) this.hud(c, W, H);
   }
   updateCamera(dt, W, H) {
-    const k = this.view ? 1 - Math.exp(-dt * 7) : 1;
+    const cine = this.intro && performance.now() - this.intro < 2400; if (!cine) this.intro = 0;
+    const k = this.view ? 1 - Math.exp(-dt * (cine ? 2.3 : 7)) : 1;
     const tgt = this.focus ? this.focus.tg : this.tg, dist = this.focus ? this.focus.d : this.dist;
     if (!this.view) this.view = { yaw: this.yaw, pit: this.pit, dist, tg: tgt.slice() };
     const v = this.view;
@@ -439,6 +477,12 @@ class R3GL {
     const y = this.floorY != null ? this.floorY : (isFinite(this.minY) ? this.minY - 0.01 : 0);
     this.autoFloor += (y - this.autoFloor) * (this.fy0 ? 1 - Math.exp(-dt * 3) : 1); this.fy0 = true;
     this.floorMesh.position.set(this.view.tg[0], this.autoFloor, this.view.tg[2]); this.floorMesh.updateMatrix();
+    if (this.hallGroup) {
+      this.hallGroup.position.set(this.view.tg[0], this.autoFloor, this.view.tg[2]);
+      // hide whatever stands between the camera and the scene (camera position relative to the hall centre)
+      const c = this.camera.position, lx = c.x - this.view.tg[0], lz = c.z - this.view.tg[2], ly = c.y - this.autoFloor, R = this.hallR - 0.8, s = this.hallSide;
+      s.back.visible = lz > -R; s.left.visible = lx > -R; s.right.visible = lx < R; s.roof.visible = ly < this.hallH - 1;
+    }
   }
   applyExplode(dt) {
     this.explode += ((this.explodeOn ? 1 : 0) - this.explode) * (1 - Math.exp(-dt * 4));
@@ -532,6 +576,7 @@ class R3GL {
     cv.removeEventListener('pointermove', this.onMove); cv.removeEventListener('pointerleave', this.onLeave);
     cv.removeEventListener('pointerdown', this.onDown); cv.removeEventListener('pointerup', this.onUp);
     this.quads.forEach((m) => m.geometry.dispose());
+    if (this.hallGroup) { const mats = new Set(); this.hallGroup.traverse((o) => { if (o.geometry) o.geometry.dispose(); if (o.material) mats.add(o.material); }); mats.forEach((m) => m.dispose()); }
     this.floorMesh.geometry.dispose(); this.floorMesh.material.dispose();
     if (this.key.shadow.map) this.key.shadow.map.dispose();
     this.scene.clear(); this.pools.clear(); this.used.length = 0;

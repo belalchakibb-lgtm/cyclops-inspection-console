@@ -243,7 +243,8 @@ html.field .cyst-msg.t { background: #eef5ff; } html.field .cyst-msg.u { backgro
   const lesson = () => S.lessons[st.lesson];
   function stepsOf(l) { const s = l.say.map((_, i) => ({ k: 'say', i })); s.push({ k: 'points' }); if (l.tool) s.push({ k: 'tool' }); s.push({ k: 'check' }); return s; }
   function openLesson(i) {
-    st.exam = null; st.lesson = i; st.step = 0; finishTyping(); chat().innerHTML = ''; if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
+    st.exam = null; st.lesson = i; st.step = 0; finishTyping();
+    if (S.lessons[i]) window.CY_LESSON = L('ASME/API lesson ', 'Leçon ASME/API ') + S.lessons[i].code + ' · ' + T2(S.lessons[i].title); chat().innerHTML = ''; if (typeof speechSynthesis !== 'undefined') speechSynthesis.cancel();
     renderNav(); renderHead(); next();
   }
   function next() {
@@ -271,6 +272,7 @@ html.field .cyst-msg.t { background: #eef5ff; } html.field .cyst-msg.u { backgro
     box.addEventListener('click', (e) => {
       const b = e.target.closest('[data-o]'); if (!b || box.dataset.done) return; box.dataset.done = '1';
       const ok = Number(b.dataset.o) === item.a;
+      window.dispatchEvent(new CustomEvent('cy-answer', { detail: { src: st.exam ? 'exam' : 'study', area: 'CODES', skill: 'codes', ok, q: item.q, given: item.o[Number(b.dataset.o)], right: item.o[item.a], why: item.why || null } }));
       b.classList.add(ok ? 'ok' : 'ko'); box.querySelector('[data-o="' + item.a + '"]').classList.add('ok');
       box.querySelectorAll('button').forEach((x) => { x.disabled = true; });
       bubble('u', esc(b.textContent));

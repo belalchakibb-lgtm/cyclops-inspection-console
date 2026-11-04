@@ -106,6 +106,107 @@
       ] }
   ];
 
+  /* ============================ adaptive missions ============================ */
+  // Randomised FICTIONAL jobs. Every number is generated and every expected answer is computed from it.
+  // Difficulty 1–3 changes how many steps (calculations, code-style limits) are asked.
+  const R = Math.random, pickR = (a) => a[Math.floor(R() * a.length)], between = (a, b, st) => { const n = Math.round((b - a) / (st || 1)); return a + Math.round(R() * n) * (st || 1); };
+  const tagNo = () => String(100 + Math.floor(R() * 900));
+  const lenLimit = (t) => (t < 19 ? 6 : t <= 57 ? t / 3 : 19); // training rule in the style of ASME VIII (verify the edition)
+  const typeName = (k) => (window.CYUTSIM && window.CYUTSIM.TYPES[k] ? window.CYUTSIM.TYPES[k].name : [k, k]);
+  const MISSIONS = {
+    UT(d) {
+      const T = pickR([12, 16, 20, 25, 30, 40]), key = pickR(['crack', 'lof', 'pore', 'slag']), z = Math.round(T * (0.3 + R() * 0.5) * 10) / 10, S = Math.round(z / Math.cos(Math.PI / 3) * 10) / 10;
+      const planar = key === 'crack' || key === 'lof', len = between(3, 16), lim = lenLimit(T), rej = planar || len > lim, others = ['crack', 'lof', 'pore', 'slag'].filter((k) => k !== key).slice(0, 2);
+      const steps = [
+        NU([`Weld W-${tagNo()}, ${T} mm wall, 60° probe. An echo peaks at sound path S = ${nb(S, 1)} mm (first leg). How deep is the reflector?`, `Soudure W-${tagNo()}, paroi ${T} mm, traducteur 60°. Un écho culmine à S = ${nb(S, 1)} mm (premier parcours). À quelle profondeur est le réflecteur ?`], z, 0.2, 'mm', [`Depth = S × cos 60° = ${nb(S, 1)} × 0.5 = ${nb(z, 1)} mm.`, `Profondeur = S × cos 60° = ${nb(S, 1)} × 0,5 = ${nb(z, 1)} mm.`], { review: { mod: ['UT', 'calc'] } }),
+        C(['Look at the echo shape. What is the most likely indication?', 'Regardez la forme de l’écho. Quelle est l’indication la plus probable ?'], [typeName(key), typeName(others[0]), typeName(others[1])], 0, [planar ? 'Planar flaws give strong, angle-sensitive echoes (jagged for a crack, sharp and steep for lack of fusion on the bevel).' : 'Volumetric flaws give lower, rounded (pore) or irregular (slag) echoes that change little with angle.', planar ? 'Les défauts plans donnent des échos forts et sensibles à l’angle (dentelés pour une fissure, nets et raides pour un manque de fusion).' : 'Les défauts volumiques donnent des échos plus faibles, arrondis (pore) ou irréguliers (laitier), peu sensibles à l’angle.'], { img: 'ut:' + key + ':' + (rej ? 'reject' : 'accept'), review: { sim: 'ut-lib' } })
+      ];
+      if (d >= 2) steps.unshift(NU([`To cover the full ${T} mm thickness with the 60° probe, what is the full skip distance?`, `Pour couvrir toute l’épaisseur de ${T} mm avec le 60°, quel est le bond complet ?`], 2 * T * Math.tan(Math.PI / 3), 0.6, 'mm', [`Skip = 2 × T × tan 60° = 2 × ${T} × 1.732 = ${nb(2 * T * 1.732, 1)} mm.`, `Bond = 2 × T × tan 60° = 2 × ${T} × 1,732 = ${nb(2 * T * 1.732, 1)} mm.`], { review: { mod: ['UT', 'calc'] } }));
+      if (d >= 3 && !planar) steps.push(NU([`Training length limit for a volumetric indication at t = ${T} mm (6 mm below 19 mm, t/3 from 19 to 57 mm, 19 mm above)?`, `Limite de longueur de formation pour une indication volumique à e = ${T} mm (6 mm sous 19 mm, e/3 de 19 à 57 mm, 19 mm au-delà) ?`], lim, 0.1, 'mm', [`t = ${T} mm → limit ${nb(lim, 1)} mm.`, `e = ${T} mm → limite ${nb(lim, 1)} mm.`]));
+      steps.push(C([`Decision for this ${planar ? '' : `${len} mm long `}indication (training rule, verify the governing code edition)?`, `Décision pour cette indication${planar ? '' : ` de ${len} mm`} (règle de formation, vérifier l’édition du code) ?`],
+        rej ? [['Reject and report for repair', 'Refuser et signaler pour réparation'], ['Accept', 'Accepter']] : [['Accept and record', 'Accepter et consigner'], ['Reject', 'Refuser']], 0,
+        planar ? ['Planar flaws (cracks, lack of fusion) are rejected whatever their length in this training rule.', 'Les défauts plans (fissures, manques de fusion) sont refusés quelle que soit leur longueur dans cette règle de formation.'] : [`Volumetric: compare its length ${len} mm with the limit ${nb(lim, 1)} mm → ${rej ? 'too long, reject' : 'within the limit, accept'}.`, `Volumique : comparer sa longueur ${len} mm à la limite ${nb(lim, 1)} mm → ${rej ? 'trop longue, refus' : 'dans la limite, acceptée'}.`]));
+      return { icon: '📟', title: ['Pipe weld UT', 'UT d’une soudure de tuyauterie'], brief: [`Fictional job: line ${tagNo()}-P-${tagNo()}, carbon steel, ${T} mm wall, single-V butt weld (30° bevel). Examine it with a 60° probe calibrated on a DAC.`, `Travail fictif : ligne ${tagNo()}-P-${tagNo()}, acier au carbone, paroi ${T} mm, soudure en V (chanfrein 30°). Contrôle au traducteur 60° étalonné sur DAC.`], steps };
+    },
+    RT(d) {
+      const t = between(8, 30), key = pickR(['slag', 'cluster', 'ip', 'crack']), D0 = between(220, 300) / 100, len = between(3, 14), lim = lenLimit(t);
+      const names = { slag: ['Slag inclusion', 'Inclusion de laitier'], cluster: ['Cluster porosity', 'Nid de soufflures'], ip: ['Incomplete penetration', 'Manque de pénétration'], crack: ['Crack', 'Fissure'] }, others = Object.keys(names).filter((k) => k !== key).slice(0, 2);
+      const dec = key === 'crack' || key === 'ip' ? 0 : key === 'slag' ? (len > lim ? 0 : 1) : 2;
+      const opts = [['Reject: repair and re-radiograph', 'Refuser : réparer et refaire la radiographie'], ['Accept: within the elongated-indication limit', 'Accepter : dans la limite des indications allongées'], ['Evaluate with the rounded-indication charts of the code for this thickness', 'Évaluer avec les abaques d’indications arrondies du code pour cette épaisseur']];
+      const steps = [C(['On the film you find this indication. What is it?', 'Sur le film vous trouvez cette indication. Qu’est-ce que c’est ?'], [names[key], names[others[0]], names[others[1]]], 0, ['Shape and position identify it: irregular elongated (slag), round dark dots in a group (porosity), straight line at the centre (incomplete penetration), fine jagged line (crack).', 'La forme et la position l’identifient : irrégulière allongée (laitier), points sombres ronds groupés (porosité), ligne droite au centre (manque de pénétration), ligne fine en zigzag (fissure).'], { img: 'rt:' + key, review: { sim: 'rt-atlas' } })];
+      if (d >= 2) steps.unshift(NU([`Density next to the essential IQI wire: ${nb(D0, 2)}. Allowed variation −15 % / +30 %. Maximum density in the area of interest?`, `Densité à côté du fil essentiel : ${nb(D0, 2)}. Variation autorisée −15 % / +30 %. Densité maximale dans la zone d’intérêt ?`], D0 * 1.3, 0.02, '', [`${nb(D0, 2)} × 1.30 = ${nb(D0 * 1.3, 2)} (training values in the style of ASME V — verify the edition).`, `${nb(D0, 2)} × 1,30 = ${nb(D0 * 1.3, 2)} (valeurs de formation type ASME V — vérifier l’édition).`], { review: { mod: ['RT', 'iqi'] } }));
+      if (d >= 3 && key === 'slag') steps.push(NU([`Training elongated-indication limit for t = ${t} mm?`, `Limite de formation des indications allongées pour e = ${t} mm ?`], lim, 0.1, 'mm', [`t = ${t} mm → ${nb(lim, 1)} mm (6 mm below 19 mm, t/3 from 19 to 57 mm).`, `e = ${t} mm → ${nb(lim, 1)} mm (6 mm sous 19 mm, e/3 de 19 à 57 mm).`]));
+      steps.push(C([`Decision${key === 'slag' ? ` (the slag is ${len} mm long, t = ${t} mm)` : ''}? (training rule)`, `Décision${key === 'slag' ? ` (le laitier mesure ${len} mm, e = ${t} mm)` : ''} ? (règle de formation)`], [opts[dec], ...opts.filter((_, i) => i !== dec)], 0,
+        key === 'crack' || key === 'ip' ? ['Cracks and incomplete penetration are unacceptable in this training rule.', 'Fissures et manques de pénétration sont inacceptables dans cette règle de formation.'] : key === 'slag' ? [`${len} mm against ${nb(lim, 1)} mm → ${len > lim ? 'reject' : 'accept'}.`, `${len} mm contre ${nb(lim, 1)} mm → ${len > lim ? 'refus' : 'acceptation'}.`] : ['Rounded indications are judged against the code’s charts for the thickness, not by a single length.', 'Les indications arrondies se jugent avec les abaques du code pour l’épaisseur, pas par une seule longueur.']));
+      return { icon: '🎞', title: ['Radiograph review', 'Revue de radiogramme'], brief: [`Fictional job: vessel V-${tagNo()}, longitudinal seam, t = ${t} mm, Ir-192, wire IQI source side.`, `Travail fictif : appareil V-${tagNo()}, soudure longitudinale, e = ${t} mm, Ir-192, IQI à fils côté source.`], steps };
+    },
+    APVG(d) {
+      const P = pickR([6, 8, 10, 12, 16]), tp = between(90, 140) / 10, y = between(4, 10), loss = between(4, 18) / 10, tc = Math.round((tp - loss) * 10) / 10, treq = Math.round((tc - between(4, 25) / 10) * 10) / 10;
+      const rate = (tp - tc) / y, life = (tc - treq) / rate, Pt = 1.3 * P, ranges = [10, 16, 25, 40, 60, 100, 160], good = ranges.filter((g) => g >= Pt * 1.5 && g <= Pt * 4).sort((a, b) => Math.abs(a - 2 * Pt) - Math.abs(b - 2 * Pt))[0] || ranges.find((g) => g >= 2 * Pt), small = [...ranges].reverse().find((g) => g < Pt) || 6, big = ranges[ranges.length - 1];
+      const steps = [NU([`Shell thickness was ${nb(tp, 1)} mm, and is ${nb(tc, 1)} mm ${y} years later. Corrosion rate?`, `La virole mesurait ${nb(tp, 1)} mm, puis ${nb(tc, 1)} mm ${y} ans plus tard. Vitesse de corrosion ?`], rate, 0.005, 'mm/' + L('yr', 'an'), [`(${nb(tp, 1)} − ${nb(tc, 1)}) ÷ ${y} = ${nb(rate, 3)} mm/year.`, `(${nb(tp, 1)} − ${nb(tc, 1)}) ÷ ${y} = ${nb(rate, 3)} mm/an.`], { review: { study: 4 } })];
+      if (d >= 2) steps.push(NU([`Required thickness ${nb(treq, 1)} mm. Remaining life?`, `Épaisseur requise ${nb(treq, 1)} mm. Durée de vie restante ?`], life, 0.2, L('years', 'ans'), [`(${nb(tc, 1)} − ${nb(treq, 1)}) ÷ ${nb(rate, 3)} = ${nb(life, 1)} years (learning estimate).`, `(${nb(tc, 1)} − ${nb(treq, 1)}) ÷ ${nb(rate, 3)} = ${nb(life, 1)} ans (estimation pédagogique).`]));
+      steps.push(NU([`Training example: hydrostatic test at 1.3 × MAWP, MAWP = ${P} bar. Test pressure?`, `Exemple : épreuve à 1,3 × PMS, PMS = ${P} bar. Pression d’épreuve ?`], Pt, 0.05, 'bar', [`1.3 × ${P} = ${nb(Pt, 1)} bar (real factor from the code edition and regulation).`, `1,3 × ${P} = ${nb(Pt, 1)} bar (le vrai facteur vient du code et de la réglementation).`]));
+      if (d >= 2) steps.push(C(['Which test gauge range?', 'Quelle échelle de manomètre ?'], [`0–${good} bar`, `0–${small} bar`, `0–${big} bar`], 0, [`About twice the test pressure (${nb(2 * Pt, 1)} bar) keeps the reading accurate; a range below the test pressure is off-scale, a huge range is imprecise.`, `Environ deux fois la pression d’épreuve (${nb(2 * Pt, 1)} bar) garde une lecture précise ; une échelle sous la pression d’épreuve sature, une échelle énorme est imprécise.`]));
+      steps.push(C(['Conclusion of the thickness check?', 'Conclusion des mesures d’épaisseur ?'], tc > treq ? [['Fit for continued service; set the next inspection from the remaining life', 'Apte à la poursuite du service ; fixer la prochaine inspection selon la durée de vie'], ['Remove from service immediately', 'Retirer immédiatement du service']] : [['Below required thickness: remove from service for assessment', 'Sous l’épaisseur requise : retrait pour évaluation'], ['Fit for continued service', 'Apte à la poursuite du service']], 0, ['Compare the current thickness with the required thickness; the interval follows the regulation and inspection code.', 'Comparer l’épaisseur actuelle à l’épaisseur requise ; l’intervalle suit la réglementation et le code d’inspection.']));
+      return { icon: '🛢', title: ['Pressure vessel inspection', 'Inspection d’un appareil à pression'], brief: [`Fictional job: receiver R-${tagNo()}, MAWP ${P} bar, carbon steel, periodic inspection with thickness survey and hydrotest.`, `Travail fictif : réservoir R-${tagNo()}, PMS ${P} bar, acier au carbone, inspection périodique avec mesures d’épaisseur et épreuve.`], steps };
+    },
+    APL(d) {
+      const swl = pickR([2, 3.2, 5, 6.3, 10, 12.5, 16, 20]), dn = pickR([10, 12, 14, 16, 18, 20]), red = between(20, 100) / 10, dm = Math.round(dn * (1 - red / 100) * 100) / 100, rr = (dn - dm) / dn * 100, W = between(2, 12), al = pickR([30, 45, 60]);
+      const steps = [NU([`Static test at 125 % of SWL ${nb(swl, 1)} t (training example). Test load?`, `Épreuve statique à 125 % de la CMU ${nb(swl, 1)} t (exemple). Charge d’essai ?`], swl * 1.25, 0.05, 't', [`${nb(swl, 1)} × 1.25 = ${nb(swl * 1.25, 3)} t.`, `${nb(swl, 1)} × 1,25 = ${nb(swl * 1.25, 3)} t.`]),
+        NU([`Rope nominal ${dn} mm, measured ${nb(dm, 2)} mm at the worst point. Diameter reduction?`, `Câble nominal ${dn} mm, mesuré ${nb(dm, 2)} mm au pire endroit. Réduction de diamètre ?`], rr, 0.15, '%', [`(${dn} − ${nb(dm, 2)}) ÷ ${dn} × 100 = ${nb(rr, 1)} %.`, `(${dn} − ${nb(dm, 2)}) ÷ ${dn} × 100 = ${nb(rr, 1)} %.`]),
+        C(['Job-sheet criterion for this fictional rope: discard at 7 % reduction or more. Decision?', 'Critère de la fiche pour ce câble fictif : dépose à 7 % de réduction ou plus. Décision ?'], rr >= 7 ? [['Discard the rope', 'Déposer le câble'], ['Keep in service', 'Maintenir en service']] : [['Keep in service and record', 'Maintenir en service et consigner'], ['Discard the rope', 'Déposer le câble']], 0, ['Real criteria come from ISO 4309 or the manufacturer and depend on the rope construction.', 'Les vrais critères viennent de l’ISO 4309 ou du fabricant et dépendent de la construction du câble.'])];
+      if (d >= 3) steps.splice(1, 0, NU([`A ${W} t load hangs from 2 sling legs, each at ${al}° from vertical. Force in each leg?`, `Une charge de ${W} t pend à 2 brins, chacun à ${al}° de la verticale. Effort dans chaque brin ?`], W / (2 * Math.cos(al * Math.PI / 180)), 0.05, 't', [`${W} ÷ (2 × cos ${al}°) = ${nb(W / (2 * Math.cos(al * Math.PI / 180)), 2)} t — the angle increases the force.`, `${W} ÷ (2 × cos ${al}°) = ${nb(W / (2 * Math.cos(al * Math.PI / 180)), 2)} t — l’angle augmente l’effort.`]));
+      if (d === 1) steps.shift();
+      return { icon: '🏗', title: ['Lifting equipment examination', 'Examen d’un appareil de levage'], brief: [`Fictional job: hoist H-${tagNo()}, SWL ${nb(swl, 1)} t, periodic examination with load test and rope inspection.`, `Travail fictif : palan H-${tagNo()}, CMU ${nb(swl, 1)} t, examen périodique avec essai de charge et contrôle du câble.`], steps };
+    },
+    APE(d) {
+      const bad = R() < 0.8 ? Math.floor(R() * 4) : -1, vals = [0, 1, 2, 3].map((i) => (i === bad ? between(10, 90) / 100 : between(20, 900))), t = R() < 0.5 ? between(14, 45) : between(310, 420), Lm = between(15, 60), I = pickR([10, 16, 20, 25]), S = pickR([1.5, 2.5, 4]), du = 2 * 0.0225 * Lm * I / S;
+      const steps = [
+        C([`Insulation resistance at 500 V DC: C1 ${nb(vals[0], vals[0] < 1 ? 2 : 0)} MΩ, C2 ${nb(vals[1], vals[1] < 1 ? 2 : 0)} MΩ, C3 ${nb(vals[2], vals[2] < 1 ? 2 : 0)} MΩ, C4 ${nb(vals[3], vals[3] < 1 ? 2 : 0)} MΩ. Training minimum 1 MΩ. Which circuit fails?`, `Isolement sous 500 V continu : C1 ${nb(vals[0], vals[0] < 1 ? 2 : 0)} MΩ, C2 ${nb(vals[1], vals[1] < 1 ? 2 : 0)} MΩ, C3 ${nb(vals[2], vals[2] < 1 ? 2 : 0)} MΩ, C4 ${nb(vals[3], vals[3] < 1 ? 2 : 0)} MΩ. Minimum de formation 1 MΩ. Quel circuit est non conforme ?`],
+          bad >= 0 ? [['C' + (bad + 1), 'C' + (bad + 1)], ...[0, 1, 2, 3].filter((i) => i !== bad).slice(0, 2).map((i) => ['C' + (i + 1), 'C' + (i + 1)]), [L('None', 'Aucun'), 'Aucun']] : [['None', 'Aucun'], ['C1', 'C1'], ['C2', 'C2']], 0,
+          ['Only a value below the minimum fails; large values (hundreds of MΩ) are normal.', 'Seule une valeur sous le minimum est non conforme ; les grandes valeurs (centaines de MΩ) sont normales.'], { review: { dict: 'insulation' } }),
+        C([`A 30 mA RCD trips in ${t} ms at 1 × IΔn (training limit 300 ms). Result?`, `Un DDR 30 mA déclenche en ${t} ms à 1 × IΔn (limite de formation 300 ms). Résultat ?`], t <= 300 ? [['Pass', 'Conforme'], ['Fail', 'Non conforme']] : [['Fail: replace the RCD', 'Non conforme : remplacer le DDR'], ['Pass', 'Conforme']], 0, [`${t} ms ${t <= 300 ? '≤' : '>'} 300 ms.`, `${t} ms ${t <= 300 ? '≤' : '>'} 300 ms.`], { review: { dict: 'rcd' } })
+      ];
+      if (d >= 2) steps.unshift(OR(['Put the lockout steps in order.', 'Mettez les étapes de consignation dans l’ordre.'], [['Identify the isolating device', 'Identifier l’organe de séparation'], ['Switch off and separate', 'Couper et séparer'], ['Lock and tag', 'Condamner et étiqueter'], ['Prove the tester on a known source', 'Prouver le VAT sur une source connue'], ['Verify absence of voltage', 'Vérifier l’absence de tension']], ['Identify → separate → lock → prove the tester → verify.', 'Identifier → séparer → condamner → prouver le VAT → vérifier.'], { review: { dict: 'loto' } }));
+      if (d >= 3) steps.push(NU([`Single-phase copper circuit: L = ${Lm} m, I = ${I} A, section ${nb(S, 1)} mm², ρ ≈ 0.0225 Ω·mm²/m. Voltage drop in volts?`, `Circuit monophasé cuivre : L = ${Lm} m, I = ${I} A, section ${nb(S, 1)} mm², ρ ≈ 0,0225 Ω·mm²/m. Chute de tension en volts ?`], du, 0.1, 'V', [`2 × 0.0225 × ${Lm} × ${I} ÷ ${nb(S, 1)} = ${nb(du, 2)} V (${nb(du / 230 * 100, 1)} % of 230 V).`, `2 × 0,0225 × ${Lm} × ${I} ÷ ${nb(S, 1)} = ${nb(du, 2)} V (${nb(du / 230 * 100, 1)} % de 230 V).`]));
+      return { icon: '⚡', title: ['Electrical board verification', 'Vérification d’une armoire électrique'], brief: [`Fictional job: board DB-${tagNo()}, 230/400 V, periodic verification after lockout.`, `Travail fictif : armoire DB-${tagNo()}, 230/400 V, vérification périodique après consignation.`], steps };
+    },
+    SURF(d) {
+      const mat = pickR([['carbon', ['carbon steel', 'acier au carbone']], ['stainless', ['austenitic stainless steel', 'inox austénitique']], ['alu', ['aluminium alloy', 'alliage d’aluminium']]]), ferro = mat[0] === 'carbon';
+      const l = between(2, 12), w = between(5, 30) / 10, linear = l > 3 * w, area = ferro ? 'MT' : 'PT';
+      const steps = [
+        C([`Surface examination of a fillet weld in ${mat[1][0]}. Which method can be used?`, `Contrôle de surface d’une soudure d’angle en ${mat[1][1]}. Quelle méthode peut-on utiliser ?`], ferro ? [['MT or PT (ferromagnetic material)', 'MT ou PT (matériau ferromagnétique)'], ['PT only', 'PT seulement'], ['RT only', 'RT seulement']] : [['PT only (not ferromagnetic)', 'PT seulement (non ferromagnétique)'], ['MT or PT', 'MT ou PT'], ['MT only', 'MT seulement']], 0, ['MT needs a ferromagnetic material; PT works on any non-porous material.', 'La MT exige un matériau ferromagnétique ; le PT fonctionne sur tout matériau non poreux.'], { review: { mod: ['MT', 'mag'] } }),
+        C([`An indication ${l} mm long and ${nb(w, 1)} mm wide. Classification?`, `Une indication de ${l} mm de long et ${nb(w, 1)} mm de large. Classement ?`], linear ? [['Linear (length > 3 × width)', 'Linéaire (longueur > 3 × largeur)'], ['Rounded', 'Arrondie']] : [['Rounded (length ≤ 3 × width)', 'Arrondie (longueur ≤ 3 × largeur)'], ['Linear', 'Linéaire']], 0, [`${l} ${linear ? '>' : '≤'} 3 × ${nb(w, 1)} = ${nb(3 * w, 1)}.`, `${l} ${linear ? '>' : '≤'} 3 × ${nb(w, 1)} = ${nb(3 * w, 1)}.`], { review: { mod: [area, area === 'MT' ? 'mtinterp' : 'ptinterp'] } })
+      ];
+      const rej = linear || l > 5;
+      if (d >= 2) steps.push(C(['Decision (training rule in the style of ASME VIII App. 6/8: relevant linear indications unacceptable; rounded indications larger than about 5 mm unacceptable — verify the edition)?', 'Décision (règle de formation type ASME VIII ann. 6/8 : indications linéaires pertinentes inacceptables ; arrondies de plus d’environ 5 mm inacceptables — vérifier l’édition) ?'], rej ? [['Reject: remove, repair, re-examine', 'Refuser : éliminer, réparer, recontrôler'], ['Accept', 'Accepter']] : [['Accept and record', 'Accepter et consigner'], ['Reject', 'Refuser']], 0, [rej ? (linear ? 'Relevant linear indication → reject.' : `Rounded but ${l} mm > 5 mm → reject.`) : `Rounded and ${l} mm ≤ 5 mm → accept.`, rej ? (linear ? 'Indication linéaire pertinente → refus.' : `Arrondie mais ${l} mm > 5 mm → refus.`) : `Arrondie et ${l} mm ≤ 5 mm → acceptée.`]));
+      if (d >= 3) steps.push(C([ferro ? 'With an AC yoke, how many positions at each location?' : 'How do you remove excess solvent-removable penetrant?', ferro ? 'Avec un yoke CA, combien de positions à chaque endroit ?' : 'Comment éliminer l’excès de pénétrant éliminable au solvant ?'], ferro ? [['Two, about 90° apart', 'Deux, à environ 90°'], ['One', 'Une']] : [['Dry cloth, then cloth lightly moistened with remover', 'Chiffon sec, puis chiffon légèrement imbibé'], ['Spray remover directly on the part', 'Pulvériser le nettoyant sur la pièce']], 0, ferro ? ['A crack parallel to the field does not show; the second direction catches it.', 'Une fissure parallèle au champ n’apparaît pas ; la seconde direction la révèle.'] : ['Spraying directly washes penetrant out of the defects.', 'Pulvériser directement rince le pénétrant hors des défauts.']));
+      return { icon: ferro ? '🧲' : '🧪', area, title: [area + ' surface examination', 'Contrôle de surface ' + area], brief: [`Fictional job: support bracket B-${tagNo()} in ${mat[1][0]}, fillet welds to be examined for surface defects.`, `Travail fictif : console B-${tagNo()} en ${mat[1][1]}, soudures d’angle à contrôler pour défauts de surface.`], steps };
+    },
+    VT(d) {
+      const t = between(4, 20), lim = Math.min(0.8, 0.1 * t), u = Math.round((lim + (R() < 0.5 ? -1 : 1) * between(1, 3) / 10) * 10) / 10, ok = u <= lim + 1e-9;
+      const steps = [NU([`Training rule (in the style of ASME VIII UW-35): undercut ≤ the lesser of 0.8 mm and 10 % of t. Limit for t = ${t} mm?`, `Règle de formation (type ASME VIII UW-35) : caniveau ≤ la plus petite valeur entre 0,8 mm et 10 % de e. Limite pour e = ${t} mm ?`], lim, 0.01, 'mm', [`min(0.8 ; 0.1 × ${t}) = ${nb(lim, 2)} mm.`, `min(0,8 ; 0,1 × ${t}) = ${nb(lim, 2)} mm.`], { review: { mod: ['VT', 'surface'] } }),
+        C([`The weld gauge reads ${nb(Math.max(0.1, u), 1)} mm of undercut. Decision?`, `La jauge indique ${nb(Math.max(0.1, u), 1)} mm de caniveau. Décision ?`], ok ? [['Acceptable: record the value', 'Acceptable : consigner la valeur'], ['Reject', 'Refuser']] : [['Reject: repair (grind/blend or weld) then re-inspect', 'Refuser : réparer (meuler ou recharger) puis recontrôler'], ['Acceptable', 'Acceptable']], 0, [`${nb(Math.max(0.1, u), 1)} mm ${ok ? '≤' : '>'} ${nb(lim, 2)} mm.`, `${nb(Math.max(0.1, u), 1)} mm ${ok ? '≤' : '>'} ${nb(lim, 2)} mm.`])];
+      if (d >= 2) steps.unshift(C(['Direct visual examination conditions (training values, ASME V Art. 9 style)?', 'Conditions du contrôle visuel direct (valeurs de formation, type ASME V art. 9) ?'], [['Within about 600 mm, at least 30° to the surface, at least 1 000 lux', 'À environ 600 mm au plus, au moins 30°, au moins 1 000 lux'], ['Any distance with good eyesight', 'N’importe quelle distance avec de bons yeux']], 0, ['Distance, angle and light are part of the procedure; measure the light.', 'Distance, angle et éclairage font partie de la procédure ; mesurer l’éclairage.'], { review: { mod: ['VT', 'light'] } }));
+      return { icon: '👁', title: ['Weld visual examination', 'Contrôle visuel de soudure'], brief: [`Fictional job: plate butt weld PW-${tagNo()}, t = ${t} mm, final visual examination.`, `Travail fictif : soudure bout à bout PW-${tagNo()}, e = ${t} mm, contrôle visuel final.`], steps };
+    }
+  };
+  const MISSION_AREAS = ['UT', 'RT', 'MT', 'PT', 'VT', 'APVG', 'APL', 'APE'];
+  function makeMission(area, diff) {
+    const key = area === 'MT' || area === 'PT' ? 'SURF' : area;
+    let m = MISSIONS[key](diff);
+    // the surface template picks its own material; regenerate (a few times) to honour an MT/PT request
+    for (let i = 0; i < 12 && (area === 'MT' || area === 'PT') && m.area !== area; i++) m = MISSIONS.SURF(diff);
+    return Object.assign({ id: 'mission', mission: true, area: m.area || area, diff: diff + 2, missionDiff: diff }, m, { title: [`Mission · ${m.title[0]}`, `Mission · ${m.title[1]}`] });
+  }
+  // adaptive choice: weakest area from the coach, difficulty from its mastery
+  function adaptive() {
+    const I = window.CYINSIGHT, weak = I ? I.weaknesses().filter((w) => MISSION_AREAS.includes(w.area)) : [];
+    const area = weak.length && R() < 0.75 ? weak[0].area : pickR(MISSION_AREAS);
+    const m = I ? I.mastery(area).pct : null;
+    return { area, diff: m == null || m < 60 ? 1 : m < 85 ? 2 : 3, why: weak.length && weak[0].area === area ? 'weak' : 'mix' };
+  }
+
   /* ============================ engine ============================ */
   const KEY = 'cyclops-scenarios-v1';
   let best = (() => { try { return JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { return {}; } })();
@@ -123,6 +224,7 @@
 .cysc-gain { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; } .cysc-gain output { min-width: 80px; text-align: center; font-weight: 800; }
 .cysc-bar { height: 6px; border-radius: 99px; background: rgba(255,255,255,.08); overflow: hidden; margin: 6px 0; } .cysc-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--blue), var(--violet)); }
 .cysc-debrief li { margin: 8px 0; line-height: 1.45; }
+.cysc-mission { border: 1px solid var(--blue); border-radius: 12px; padding: 12px 14px; margin-bottom: 14px; background: linear-gradient(135deg, rgba(61,169,255,.12), rgba(118,87,232,.1)); }
 .cysc-step .cysurf-primary { background: var(--accent); border-color: var(--accent); color: #fff; } .cysc-step .cysurf-ok { color: #7de2b5; }
 .cysc-step .cysurf-score { font-weight: 800; font-size: 1.05rem; margin: 6px 0; } .cysc-step .cysurf-note { color: var(--muted); font-size: 12px; }
 .cysc-step .cyac-fb { padding: 8px 12px; border-left: 3px solid var(--blue); margin: 8px 0; line-height: 1.5; }
@@ -136,7 +238,16 @@
   const step = () => run.s.steps[run.i];
   function draw() {
     if (!run) {
-      root.innerHTML = `<p>${L('Real jobs from start to finish. Read the situation, make each decision, then read the debrief: every mistake is explained. Training situations only — not real procedures or measurements.', 'De vrais travaux du début à la fin. Lisez la situation, prenez chaque décision, puis lisez le débriefing : chaque erreur est expliquée. Situations de formation uniquement — pas de vraies procédures ni de vraies mesures.')}</p><div class="cysc-list">` +
+      const ad = adaptive(); missionPick.suggest = ad;
+      const done = (window.CYACADEMY && window.CYACADEMY.events ? Object.keys(window.CYACADEMY.events()).filter((k) => k.startsWith('mission:')).length : 0);
+      root.innerHTML = `<div class="cysc-mission"><h3 style="margin:0 0 6px">🎲 ${L('Adaptive missions', 'Missions adaptatives')}</h3>
+<p style="margin:0 0 8px">${L('A new fictional job every time: new equipment, new numbers, new decisions. Adaptive mode targets your weakest area and sets the difficulty from your results.', 'Un nouveau travail fictif à chaque fois : nouvel équipement, nouveaux chiffres, nouvelles décisions. Le mode adaptatif cible votre domaine le plus faible et règle la difficulté selon vos résultats.')}</p>
+<div class="cysc-gain"><button type="button" class="cysurf-primary" data-mission="adaptive">🎯 ${L('Adaptive mission', 'Mission adaptative')} (${ad.area} · ${'★'.repeat(ad.diff)}${ad.why === 'weak' ? ' · ' + L('your weak point', 'votre point faible') : ''})</button>
+<select data-mis-area aria-label="${L('Area', 'Domaine')}" style="font:inherit;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px">${MISSION_AREAS.map((a) => `<option ${a === missionPick.area ? 'selected' : ''}>${a}</option>`).join('')}</select>
+<select data-mis-diff aria-label="${L('Difficulty', 'Difficulté')}" style="font:inherit;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px">${[1, 2, 3].map((n) => `<option value="${n}" ${n === missionPick.diff ? 'selected' : ''}>${'★'.repeat(n)} ${[L('Beginner', 'Débutant'), L('Intermediate', 'Intermédiaire'), L('Advanced', 'Avancé')][n - 1]}</option>`).join('')}</select>
+<button type="button" data-mission="chosen">▶ ${L('Start this mission', 'Lancer cette mission')}</button></div>
+<small class="cyac-note">${L('Missions completed', 'Missions terminées')}: ${done} ${L('area(s)', 'domaine(s)')}</small></div>
+<h3>📚 ${L('Guided scenarios', 'Scénarios guidés')}</h3><p>${L('Real jobs from start to finish. Read the situation, make each decision, then read the debrief: every mistake is explained. Training situations only — not real procedures or measurements.', 'De vrais travaux du début à la fin. Lisez la situation, prenez chaque décision, puis lisez le débriefing : chaque erreur est expliquée. Situations de formation uniquement — pas de vraies procédures ni de vraies mesures.')}</p><div class="cysc-list">` +
         SCEN.map((s) => `<button type="button" data-start="${s.id}" class="${(best[s.id] || 0) >= 80 ? 'done' : ''}"><b>${s.icon} ${esc(T2(s.title))}</b><small>${s.area} · ${'★'.repeat(s.diff)}${'☆'.repeat(5 - s.diff)} · ${s.steps.length} ${L('steps', 'étapes')}${best[s.id] != null ? ' · ' + L('best', 'meilleur') + ' ' + best[s.id] + ' %' : ''}</small></button>`).join('') + '</div>';
       return;
     }
@@ -157,8 +268,8 @@
   }
   function drawImg(cv, spec) {
     if (!cv) return;
-    const [kind, key] = spec.split(':');
-    if (kind === 'ut' && window.CYUTSIM && window.CYUTSIM.signature) return window.CYUTSIM.signature(cv, key, 'reject');
+    const [kind, key, kase] = spec.split(':');
+    if (kind === 'ut' && window.CYUTSIM && window.CYUTSIM.signature) return window.CYUTSIM.signature(cv, key, kase || 'reject');
     if (kind === 'rt' && window.CYRTSIM && window.CYRTSIM.drawPatch) return window.CYRTSIM.drawPatch(cv, key, 'reject');
     if (kind === 'pt') {
       const [len, wid] = key.split('x').map(Number), g = cv.getContext('2d'), r = window.devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
@@ -189,6 +300,8 @@
     if (st.t === 'num') { const raw = String(root.querySelector('[data-num]').value).replace(',', '.').replace(/[^0-9.\-]/g, ''); if (!/\d/.test(raw)) return; given = Number(raw); ok = Math.abs(given - st.ans) <= st.tol; pts = ok ? 10 : 0; }
     if (st.t === 'calib') { const a = calibAmp(); given = a; ok = a >= 75 && a <= 85; pts = ok ? 10 : 0; }
     run.results[run.i] = { ok, pts, given }; run.answered = true;
+    const SKILL = { num: 'calc', calib: 'calib', order: 'procedure', multi: 'equipment', choice: st.img ? 'interp' : 'decision' };
+    window.dispatchEvent(new CustomEvent('cy-answer', { detail: { src: 'scenario', area: run.s.area, skill: SKILL[st.t], ok, q: st.q, given: st.t === 'choice' ? st.o[given] : st.t === 'num' ? given : null, right: st.t === 'choice' ? st.o[st.a] : st.t === 'num' ? st.ans : null, unit: st.unit, why: st.why, ref: st.review || null } }));
     // show the correct answer on the options
     if (st.t === 'choice' || st.t === 'multi') root.querySelectorAll('[data-opt]').forEach((b) => { const k = Number(b.dataset.opt), good = st.t === 'choice' ? k === st.a : st.a.includes(k); b.disabled = true; if (good && run.sel.has(k)) b.classList.add('ok'); else if (!good && run.sel.has(k)) b.classList.add('ko'); else if (good) b.classList.add('miss'); });
     root.querySelectorAll('[data-g],[data-ord],[data-undo]').forEach((b) => { b.disabled = true; });
@@ -200,19 +313,37 @@
   const reviewLabel = (rv) => rv.mod ? L('Review the module', 'Revoir le module') + ' ' + modTitle(rv.mod[0], rv.mod[1]) : rv.sim ? L('Practise on the simulator', 'S’entraîner sur le simulateur') : rv.study != null ? L('Review the ASME/API lesson', 'Revoir la leçon ASME/API') : L('Open the dictionary', 'Ouvrir le dictionnaire');
   function debrief() {
     const s = run.s, total = run.results.reduce((a, r) => a + r.pts, 0), pct = Math.round(total / (s.steps.length * 10) * 100);
-    if (!run.saved) { run.saved = true; best[s.id] = Math.max(best[s.id] || 0, pct); save(); api.record('scen:' + s.id, { score: pct }); }
+    if (!run.saved) {
+      run.saved = true;
+      if (s.mission) api.record('mission:' + s.area + ':' + s.missionDiff, { score: pct });
+      else { best[s.id] = Math.max(best[s.id] || 0, pct); save(); api.record('scen:' + s.id, { score: pct }); }
+    }
     const grade = pct >= 90 ? ['🏆 Excellent — field ready for this situation (in training).', '🏆 Excellent — prêt pour cette situation (en formation).'] : pct >= 70 ? ['👍 Good — review the points below.', '👍 Bien — revoyez les points ci-dessous.'] : ['💪 Keep practising — review the modules below and try again.', '💪 Continuez — revoyez les modules ci-dessous et réessayez.'];
     const miss = s.steps.map((st, n) => [st, run.results[n], n]).filter(([, r]) => !r.ok);
     root.innerHTML = `<div class="cysc-step"><button type="button" data-quit="1">← ${L('All scenarios', 'Tous les scénarios')}</button><h2 style="margin:8px 0 4px">${s.icon} ${esc(T2(s.title))} — ${L('debrief', 'débriefing')}</h2>
 <p class="cysurf-score">${total} / ${s.steps.length * 10} (${pct} %) · ${esc(T2(grade))}</p>
 ${miss.length ? `<h3>${L('What to improve', 'À améliorer')}</h3><ul class="cysc-debrief">${miss.map(([st, r, n]) => `<li><b>${L('Step', 'Étape')} ${n + 1}: ${esc(T2(st.q))}</b><br>${esc(T2(st.why))}${st.t === 'choice' ? `<br>${L('Right answer', 'Bonne réponse')} : <b>${esc(T2(st.o[st.a]))}</b>${r.given != null && r.given !== st.a ? ` · ${L('you chose', 'vous avez choisi')} : ${esc(T2(st.o[r.given]))}` : ''}` : st.t === 'num' ? `<br>${L('Expected', 'Attendu')} : <b>${nb(st.ans, st.ans % 1 ? 2 : 0)} ${esc(st.unit)}</b>` : ''}${st.review ? `<br><button type="button" data-review="${n}">📚 ${esc(reviewLabel(st.review))}</button>` : ''}</li>`).join('')}</ul>` : `<p class="cysurf-ok">${L('No mistakes: every decision was right.', 'Aucune erreur : chaque décision était juste.')}</p>`}
-<p><button type="button" class="cysurf-primary" data-start="${s.id}">↻ ${L('Play again', 'Rejouer')}</button> <button type="button" data-tutorsc="1">🧒 ${L('Ask the AI tutor about this job', 'Interroger le tuteur IA sur ce travail')}</button></p>
+<p>${s.mission ? `<button type="button" class="cysurf-primary" data-mission="again">🎲 ${L('New mission (same area and level)', 'Nouvelle mission (même domaine et niveau)')}</button> <button type="button" data-mission="adaptive">🎯 ${L('Next adaptive mission', 'Mission adaptative suivante')}</button>` : `<button type="button" class="cysurf-primary" data-start="${s.id}">↻ ${L('Play again', 'Rejouer')}</button>`} <button type="button" data-tutorsc="1">🧒 ${L('Ask the AI tutor about this job', 'Interroger le tuteur IA sur ce travail')}</button></p>
 <p class="cysurf-note">${L('Training scenario: values and acceptance rules are examples; real decisions follow the governing code edition, the approved procedure and the qualified inspector.', 'Scénario de formation : valeurs et règles d’acceptation sont des exemples ; les vraies décisions suivent l’édition du code applicable, la procédure approuvée et l’inspecteur qualifié.')}</p></div>`;
   }
   function start(id) {
     const s = SCEN.find((x) => x.id === id); if (!s) return;
+    begin(s);
+  }
+  function begin(s) {
     run = { s, i: 0, results: [], answered: false, sel: new Set(), order: [], shuf: [], gain: 40 };
+    window.CY_LESSON = (s.mission ? L('Training mission: ', 'Mission de formation : ') : L('Training scenario: ', 'Scénario de formation : ')) + T2(s.title) + ' (' + s.area + ')';
     prep(); draw();
+  }
+  const missionPick = { area: 'UT', diff: 1, last: null, suggest: null };
+  function startMission(kind) {
+    let area, diff;
+    // the list button shows its suggestion, so use exactly that one; afterwards ("next adaptive") draw a fresh one
+    if (kind === 'adaptive') { const a = (!run && missionPick.suggest) || adaptive(); missionPick.suggest = null; area = a.area; diff = a.diff; }
+    else if (kind === 'again' && missionPick.last) { area = missionPick.last.area; diff = missionPick.last.diff; }
+    else { area = missionPick.area; diff = missionPick.diff; }
+    missionPick.last = { area, diff };
+    begin(makeMission(area, diff));
   }
   // options are written with the right answer(s) first; shuffle their display order for each attempt
   function prep() { run.answered = false; run.sel = new Set(); run.order = []; run.gain = 26 + Math.floor(Math.random() * 12); run.shuf = []; const st = step(); if (st && st.o) { const a = st.o.map((_, k) => k); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } run.shuf = a; } }
@@ -220,6 +351,7 @@ ${miss.length ? `<h3>${L('What to improve', 'À améliorer')}</h3><ul class="cys
     if (!root || !root.contains(e.target)) return;
     const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
     if (d.start) return start(d.start);
+    if (d.mission) return startMission(d.mission);
     if (d.quit) { run = null; return draw(); }
     if (!run) return;
     const st = step();
@@ -233,5 +365,10 @@ ${miss.length ? `<h3>${L('What to improve', 'À améliorer')}</h3><ul class="cys
     if (d.tutorsc) return api.tutor(L('I just did a training scenario: ', 'Je viens de faire un scénario de formation : ') + T2(run.s.title) + '. ' + L('Explain to me as a beginner the key decisions and the most common mistakes in this kind of job.', 'Explique-moi comme à un débutant les décisions clés et les erreurs les plus fréquentes dans ce type de travail.'));
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && root && root.contains(e.target) && e.target.matches('[data-num]') && run && !run.answered) { e.preventDefault(); validate(); } });
-  window.CYSCEN = { SCEN, mount, best: () => best };
+  document.addEventListener('change', (e) => {
+    if (!root || !root.contains(e.target)) return;
+    if (e.target.matches('[data-mis-area]')) missionPick.area = e.target.value;
+    if (e.target.matches('[data-mis-diff]')) missionPick.diff = Number(e.target.value);
+  });
+  window.CYSCEN = { SCEN, mount, best: () => best, makeMission, MISSION_AREAS };
 }());

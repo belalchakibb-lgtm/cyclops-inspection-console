@@ -950,7 +950,9 @@ async function ask(q,o){o=o||{};const m=detM(nz(q))||curM(),matches=retrieve(o.k
  const hist=CH.slice(-7,-1).map(x=>({role:x.r=='u'?'user':'assistant',content:x.t}));while(hist.length&&hist[0].role!='user')hist.shift();
  const request={q:q,question:q,lang:FR()?'fr':'en',method:m,history:hist};
  // beginner tutor: the server adds its own tutoring rules; the Academy level adapts the depth (1 = absolute beginner … 5)
- if(o.mode==='beginner'){request.mode='beginner';request.level=window.CYACADEMY?window.CYACADEMY.level():1}if(o.image)request.image={name:o.image.name,mimeType:o.image.mimeType,dataUrl:o.image.dataUrl};
+ if(o.mode==='beginner'){request.mode='beginner';request.level=window.CYACADEMY?window.CYACADEMY.level():1}
+ // AI Teacher 2.0: what is being studied and the learner's weak points (areas and percentages only) help the AI adapt
+ request.lesson=window.CY_LESSON||(api.cur().name?api.cur().m+' · '+api.cur().name:'');if(window.CYINSIGHT)request.learner=window.CYINSIGHT.profile();if(o.image)request.image={name:o.image.name,mimeType:o.image.mimeType,dataUrl:o.image.dataUrl};
  let error='';
  try{if(typeof window.CY_AI==='function'){const a=responseText(await window.CY_AI(q,ctx,hist,request));if(a){dead=false;aiConnectionState='online';aiProvider='Custom AI';updateAIStatus();return{t:a,ai:1}}}
   // two attempts: a network drop, a sleeping cloud server or a busy AI (502/504) gets one automatic retry
@@ -966,6 +968,15 @@ async function ask(q,o){o=o||{};const m=detM(nz(q))||curM(),matches=retrieve(o.k
    if(r.status!==502&&r.status!==504)break}
    dead=true;aiConnectionState='offline';updateAIStatus();scheduleRecheck()}}catch(e){error=L('Could not reach the AI service. Start the local CYCLOPS server and check its configuration.','Impossible de joindre le service IA. Démarrez le serveur local CYCLOPS et vérifiez sa configuration.');dead=true;aiConnectionState='offline';updateAIStatus();scheduleRecheck()}
  return{t:localAnswer(q,o),ai:0,error}}
+// voice input (browser speech recognition, when supported): the recognised text is sent as a normal question
+const SpeechIn=typeof window!=='undefined'&&(window.SpeechRecognition||window.webkitSpeechRecognition);let rec=null;
+function listen(btn){if(!SpeechIn)return;if(rec){rec.stop();return}
+ rec=new SpeechIn();rec.lang=FR()?'fr-FR':'en-US';rec.interimResults=true;rec.maxAlternatives=1;const box=ad.querySelector('.cyq');let finalText='';
+ btn.classList.add('on');btn.textContent='⏺';box.placeholder=L('Listening… speak now','À l’écoute… parlez maintenant');
+ rec.onresult=e=>{let t='';for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)finalText+=e.results[i][0].transcript;else t+=e.results[i][0].transcript}box.value=(finalText+t).trim()};
+ rec.onerror=e=>{box.placeholder=e.error==='not-allowed'?L('Microphone blocked: allow it in the browser settings','Micro bloqué : autorisez-le dans les réglages du navigateur'):L('Could not hear you. Try again.','Je ne vous ai pas entendu. Réessayez.')};
+ rec.onend=()=>{rec=null;btn.classList.remove('on');btn.textContent='🎤';if(finalText.trim()){send(finalText.trim());box.value=''}else if(!box.value)box.placeholder=L('Ask a question…','Posez votre question…')};
+ try{rec.start()}catch(e){rec=null;btn.classList.remove('on');btn.textContent='🎤'}}
 const CH=[];let ad,busy=false,pendingImage=null,lastChatImage=null,aiConnectionState='checking';
 const fmt=t=>esc(t).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>');
 function prepareImage(file){
@@ -1013,7 +1024,7 @@ function openAI(q){if(!ad.open){const p=document.getElementById('prd');if(p){con
  checkAIConnection();
  drawChat();if(q)send(q);else ad.querySelector('.cyq').focus()}
 function initAI(){ad=document.createElement('dialog');ad.id='cyai';
- ad.innerHTML='<div class="cyh"><div class="cyidentity"><b class="cyt"></b><span class="cy-status" data-state="checking"></span></div><div class="cyhead-actions"><button type="button" data-cx="new" aria-label="Start a new conversation">＋</button><button class="x" data-cx="close" aria-label="Close assistant">✕</button></div></div><div class="cym"></div><div class="cyc"></div><div class="cyattach" hidden></div><div class="cyf"><button type="button" data-cx="image" title="Upload or capture a picture" aria-label="Upload or capture a picture">📷</button><input id="cyai-image-input" type="file" accept="image/*" capture="environment" hidden><input class="cyq" type="text" autocomplete="off" placeholder="'+L('Ask a question…','Posez votre question…')+'"><button data-cx="send" title="Send message" aria-label="Send message">➤</button></div>';
+ ad.innerHTML='<div class="cyh"><div class="cyidentity"><b class="cyt"></b><span class="cy-status" data-state="checking"></span></div><div class="cyhead-actions"><button type="button" data-cx="new" aria-label="Start a new conversation">＋</button><button class="x" data-cx="close" aria-label="Close assistant">✕</button></div></div><div class="cym"></div><div class="cyc"></div><div class="cyattach" hidden></div><div class="cyf"><button type="button" data-cx="image" title="Upload or capture a picture" aria-label="Upload or capture a picture">📷</button><input id="cyai-image-input" type="file" accept="image/*" capture="environment" hidden><input class="cyq" type="text" autocomplete="off" placeholder="'+L('Ask a question…','Posez votre question…')+'">'+(SpeechIn?'<button type="button" data-cx="mic" title="'+L('Speak your question','Dictez votre question')+'" aria-label="'+L('Speak your question','Dictez votre question')+'">🎤</button>':'')+'<button data-cx="send" title="Send message" aria-label="Send message">➤</button></div>';
  document.body.appendChild(ad);
  const imgInput=ad.querySelector('#cyai-image-input');
  ad.addEventListener('dragover',e=>{if(e.dataTransfer&&Array.from(e.dataTransfer.types).includes('Files')){e.preventDefault();ad.classList.add('drop-ready')}});
@@ -1025,6 +1036,7 @@ function initAI(){ad=document.createElement('dialog');ad.id='cyai';
   else if(b.dataset.cx=='image'){imgInput.click();}
   else if(b.dataset.cx=='remove-image')removePendingImage();
   else if(b.dataset.cx=='send'){const i=ad.querySelector('.cyq');send(i.value);i.value=''}
+  else if(b.dataset.cx=='mic')listen(b);
   else if(b.dataset.q){if(b.dataset.q=='__beginner'){const box=ad.querySelector('.cyq'),typed=box.value.trim(),lastQ=[...CH].reverse().find(x=>x.r=='u'),c=api.cur();box.value='';send(typed||(lastQ?lastQ.t:L('Explain to me, as a complete beginner: ','Explique-moi, comme à un débutant complet : ')+c.name+' ('+c.m+')'),{mode:'beginner'})}else if(b.dataset.q=='__phase'){const c=api.cur();send(c.name,{kw:c.kw,head:c.name,label:L('Explain: ','Expliquer : ')+c.name,force:1})}else send(b.dataset.q)}
   else if(b.dataset.sp!=null){speakText(CH[+b.dataset.sp].t.replace(/\*\*/g,''),FR()?'fr-FR':'en-US',message=>{b.title=message||L('Read this answer aloud','Lire cette réponse à voix haute')})}});
  imgInput.addEventListener('change',(event)=>{const file=event.target.files&&event.target.files[0];if(file)attachImage(file);imgInput.value='';});
@@ -1059,6 +1071,8 @@ function init(n){const pb=document.getElementById('pbody');if(!pb){if(n<20)setTi
  const st=document.createElement('style');st.textContent=css+'.cy-course-outline button:disabled{opacity:.42;cursor:not-allowed}';document.head.appendChild(st);initAI();
  const ah=document.querySelector('#prd .ah'),x=ah&&ah.querySelector('.x');if(ah){const b=document.createElement('button');b.className='x';b.title='AI';b.textContent='🤖';b.dataset.cyai='1';b.addEventListener('click',()=>openAI());ah.insertBefore(b,x||null)}
  new MutationObserver(inject).observe(pb,{childList:true});inject()}
-window.CY3={SC:SC,R3:R3,make3D:make3D,beginner:(q)=>{openAI();send(q,{mode:'beginner'})},drawInstructor:drawInstructor,ask:ask,localAnswer:localAnswer,open:openAI,openCourse:openCourse,openEquipment:openEquipment,equipmentText:equipmentText,attachImage:attachImage,send:send};
+// reusable viewer for other modules (digital twins, defect lab): root must contain .cy3w canvas, .cy3cap and the .cy3bar buttons
+const viewerMarkup=()=>'<div class="cy3w cy3video"><canvas class="cy3c"></canvas><div class="cy3cap"></div><div class="cy3timeline"><span class="cy3dot"></span></div></div><div class="cy3bar"><button data-a="play">⏸</button><button data-a="spd">1×</button><button data-a="orb">🔄</button><button data-a="rst">🎯</button>'+GL_BUTTONS()+'</div>';
+window.CY3={SC:SC,R3:R3,make3D:make3D,addParts:(o)=>Object.assign(PARTS,o),viewer:(root,key,scene)=>Viewer(root,key,scene),viewerMarkup:viewerMarkup,beginner:(q)=>{openAI();send(q,{mode:'beginner'})},drawInstructor:drawInstructor,ask:ask,localAnswer:localAnswer,open:openAI,openCourse:openCourse,openEquipment:openEquipment,equipmentText:equipmentText,attachImage:attachImage,send:send};
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>init(0));else init(0);
 })();

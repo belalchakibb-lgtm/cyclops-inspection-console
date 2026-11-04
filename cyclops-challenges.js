@@ -170,6 +170,8 @@ ${q.o ? `<div class="cyac-opts" data-cq="1">${q.o.map((o, k) => `<button type="b
       given = v; ok = Math.abs(v - q.ans) <= q.tol;
     }
     view.answered = true;
+    const SKILL = { calc: 'calc', img: 'interp', scen: 'decision', mcq: 'knowledge' };
+    window.dispatchEvent(new CustomEvent('cy-answer', { detail: { src: 'challenge', area: q.area, skill: SKILL[q.cat] || 'knowledge', cat: q.cat, diff: q.diff, ok, q: q.q, given: q.o ? q.o[choice] : given, right: q.o ? q.o[q.a] : q.ans, unit: q.unit, why: q.why } }));
     if (q.o) { const box = root.querySelector('[data-cq]'); box.querySelectorAll('button').forEach((b, k) => { b.disabled = true; if (k === q.a) b.classList.add('ok'); else if (k === choice) b.classList.add('ko'); }); }
     // statistics and adaptive difficulty (practice only)
     D.n++; if (ok) D.ok++; const c = D.cat[q.cat] || { n: 0, ok: 0 }; c.n++; if (ok) c.ok++; D.cat[q.cat] = c;

@@ -606,11 +606,13 @@
     const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
     if (d.m) { st.m = d.m; st.id = null; draw(); return; }
     if (d.list) { st.id = null; draw(); return; }
-    if (d.mod) { st.id = d.mod; draw(); root.scrollIntoView({ block: 'start' }); return; }
+    if (d.mod) { st.id = d.mod; const m0 = MODS[st.m].find((x) => x.id === d.mod); if (m0) window.CY_LESSON = L('CND Academy module ', 'Module Académie CND ') + st.m + ' · ' + T2(m0.t); draw(); root.scrollIntoView({ block: 'start' }); return; }
     const mod = st.id && MODS[st.m].find((x) => x.id === st.id); if (!mod) return;
     if (d.mo != null) {
       const box = b.closest('[data-mq]'); if (box.dataset.done) return; box.dataset.done = '1';
-      const ok = Number(d.mo) === mod.q.a; b.classList.add(ok ? 'ok' : 'ko'); box.querySelector('[data-mo="' + mod.q.a + '"]').classList.add('ok');
+      const ok = Number(d.mo) === mod.q.a;
+      window.dispatchEvent(new CustomEvent('cy-answer', { detail: { src: 'module', area: st.m, skill: 'knowledge', ok, q: mod.q.q, given: mod.q.o[Number(d.mo)], right: mod.q.o[mod.q.a], why: mod.q.why, ref: { mod: [st.m, mod.id] } } }));
+      b.classList.add(ok ? 'ok' : 'ko'); box.querySelector('[data-mo="' + mod.q.a + '"]').classList.add('ok');
       root.querySelector('[data-mfb]').innerHTML = '<div class="cyac-fb">' + esc((ok ? '✅ ' + L('Correct! ', 'Exact ! ') : '❌ ' + L('Not quite. ', 'Pas tout à fait. ')) + T2(mod.q.why)) + (ok ? '' : ' <button type="button" data-mod="' + mod.id + '">↻ ' + L('Retry', 'Réessayer') + '</button>') + '</div>';
       if (ok) api.record(doneId(st.m, mod.id));
       return;

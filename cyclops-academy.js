@@ -174,6 +174,8 @@
   const coursePassed = (m) => !!course(m).examPassed;
   const modsDone = (...ms) => !!window.CYNDT && ms.every((m) => window.CYNDT.methodDone(m, has));
   const goModules = (m) => () => { if (window.CYNDT) window.CYNDT.open(m); openTab('cnd'); };
+  // areas where an advanced (★★★) mission scored 80 % or more
+  const missionAreas = (minDiff) => new Set(Object.keys(P.ev).filter((k) => k.startsWith('mission:') && Number(k.split(':')[2]) >= (minDiff || 1) && (P.ev[k].best || 0) >= 80).map((k) => k.split(':')[1])).size;
   const scenTotal = () => (window.CYSCEN ? window.CYSCEN.SCEN.length : 8);
   const scenGood = () => (window.CYSCEN ? window.CYSCEN.SCEN.filter((s) => ((P.ev['scen:' + s.id] || {}).best || 0) >= 80).length : 0);
   const LEVELS = [
@@ -212,7 +214,8 @@
       obj('hard10', ['Answer 10 challenges correctly at ★4–★5', 'Réussir 10 défis de niveau ★4–★5'], ['Practice adapts the difficulty to you.', 'L’entraînement adapte la difficulté à votre niveau.'], () => ((P.ev['chal-hard'] || {}).n || 0) >= 10, () => openTab('chal'), 80),
       obj('exam', ['Score 80 % or more on the ASME/API final exam', 'Obtenir 80 % ou plus à l’examen final ASME/API'], ['12 questions on the codes.', '12 questions sur les codes.'], () => (study().best || 0) >= 80, goStudy('exam'), 80),
       obj('quiz', ['Score 80 % or more on the expert quiz', 'Obtenir 80 % ou plus au quiz expert'], ['Choose the hardest difficulty in the Quiz.', 'Choisissez la difficulté la plus élevée dans le Quiz.'], () => ((P.ev['quiz:master'] || {}).best || 0) >= 80, goQuiz(), 80),
-      obj('scenAll', ['Score 80 % or more on all 8 inspection scenarios', 'Obtenir 80 % ou plus aux 8 scénarios d’inspection'], ['UT, RT, MT, PT, VT, pressure, lifting and electrical jobs.', 'Travaux UT, RT, MT, PT, VT, pression, levage et électrique.'], () => scenGood() >= scenTotal(), () => openTab('scen'), 100)
+      obj('scenAll', ['Score 80 % or more on all 8 inspection scenarios', 'Obtenir 80 % ou plus aux 8 scénarios d’inspection'], ['UT, RT, MT, PT, VT, pressure, lifting and electrical jobs.', 'Travaux UT, RT, MT, PT, VT, pression, levage et électrique.'], () => scenGood() >= scenTotal(), () => openTab('scen'), 100),
+      obj('mission3', ['Score 80 % or more on advanced missions (★★★) in 3 areas', 'Obtenir 80 % ou plus à des missions avancées (★★★) dans 3 domaines'], ['Randomised fictional jobs: new numbers every time.', 'Travaux fictifs aléatoires : de nouveaux chiffres à chaque fois.'], () => missionAreas(3) >= 3, () => openTab('scen'), 90)
     ] }
   ];
   const levelDone = (lv) => lv.obj.every((o) => o.done());
@@ -221,7 +224,7 @@
   function xp() {
     let x = 0;
     LEVELS.forEach((lv) => lv.obj.forEach((o) => { if (o.done()) x += o.xp; }));
-    x += countPrefix('dict:') * 2 + countPrefix('lab:') * 5 + countPrefix('basic:') * 10 + countPrefix('mod:') * 8 + countPrefix('daily:') * 15 + ((P.ev.chal || {}).ok || 0) * 2 + countPrefix('ut-lib:') * 3 + countPrefix('rt-atlas:') * 3 + okCount('ut-ex') * 10 + scenGood() * 20;
+    x += countPrefix('dict:') * 2 + countPrefix('lab:') * 5 + countPrefix('basic:') * 10 + countPrefix('mod:') * 8 + countPrefix('daily:') * 15 + ((P.ev.chal || {}).ok || 0) * 2 + countPrefix('ut-lib:') * 3 + countPrefix('rt-atlas:') * 3 + okCount('ut-ex') * 10 + scenGood() * 20 + missionAreas(1) * 15 + countPrefix('twin:') * 5 + countPrefix('defect3d:') * 3 + countPrefix('ws:') * 2;
     return x;
   }
   const ACH = [
@@ -237,6 +240,8 @@
     ['⚡', ['Challenger', 'Challenger'], ['Complete 3 daily challenges', 'Terminer 3 défis du jour'], () => countPrefix('daily:') >= 3],
     ['🧮', ['Calculator', 'Calculateur'], ['10 correct answers at ★4–★5', '10 bonnes réponses à ★4–★5'], () => ((P.ev['chal-hard'] || {}).n || 0) >= 10],
     ['🧪', ['Field-ready trainee', 'Stagiaire prêt pour le terrain'], ['80 % or more on 4 inspection scenarios', '80 % ou plus à 4 scénarios d’inspection'], () => scenGood() >= 4],
+    ['🎲', ['Mission specialist', 'Spécialiste des missions'], ['80 % or more on missions in 5 areas', '80 % ou plus aux missions dans 5 domaines'], () => missionAreas(1) >= 5],
+    ['🏭', ['Twin inspector', 'Inspecteur jumeau'], ['Complete 5 digital-twin inspections', 'Terminer 5 inspections sur jumeaux numériques'], () => Object.keys(P.ev).filter((k) => /^twin:[A-Z]+:/.test(k)).length >= 5],
     ['🎓', ['Graduate', 'Diplômé'], ['Complete all 5 levels', 'Terminer les 5 niveaux'], () => LEVELS.every(levelDone)]
   ];
 
@@ -244,6 +249,11 @@
   const css = `
 .cyac { width: min(1180px, 97vw); height: min(92vh, 900px); padding: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--text); }
 .cyac::backdrop { background: rgba(3, 7, 20, .72); }
+.cyac[open] { animation: cyac-in .22s ease-out; } @keyframes cyac-in { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+.cyac-body > * { animation: cyac-fade .25s ease-out; } @keyframes cyac-fade { from { opacity: 0; } to { opacity: 1; } }
+.cyac-tabs button { transition: background .15s ease, border-color .15s ease; }
+@media (prefers-reduced-motion: reduce) { .cyac[open], .cyac-body > * { animation: none; } }
+@media (max-width: 640px) { .cyac { width: 100vw; height: 100dvh; max-height: none; border-radius: 0; } .cyac-tabs { flex-wrap: nowrap; overflow-x: auto; } .cyac-tabs button { white-space: nowrap; } }
 .cyac-wrap { display: grid; grid-template-rows: auto auto 1fr; height: 100%; }
 .cyac-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .cyac-head strong { font-size: 1.1rem; } .cyac-head span { display: block; color: var(--muted); font-size: 12px; }
@@ -301,13 +311,28 @@ html.field .cyac-level, html.field .cyac-card { background: #fff; }
     if (!dlg) return;
     dlg.innerHTML = '<div class="cyac-wrap"><div class="cyac-head"><div><strong>🏫 ' + L('CYCLOPS Academy', 'Académie CYCLOPS') + '</strong><span>' + L('Industrial inspection school from absolute zero · training only, not a qualification', 'École d’inspection industrielle à partir de zéro · formation uniquement, pas une qualification') + '</span></div>' +
       '<div class="cyac-stats">' + statsHtml() + '</div></div>' +
-      '<div class="cyac-tabs">' + [['path', '🧭 ' + L('Learning path', 'Parcours')], ['basics', '🌱 ' + L('Beginner lessons', 'Leçons débutant')], ['cnd', '🎓 ' + L('CND Academy', 'Académie CND')], ['chal', '⚡ ' + L('Challenges', 'Défis')], ['scen', '🧪 ' + L('Scenarios', 'Scénarios')],['lab', '🧊 ' + L('3D lab', 'Labo 3D')], ['dict', '📖 ' + L('Dictionary', 'Dictionnaire')], ['progress', '🏆 ' + L('My progress', 'Ma progression')]].map(([k, n]) => '<button type="button" data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + n + '</button>').join('') +
-      '<button type="button" data-a="tutor">🧒 ' + L('Explain like I’m a beginner (AI)', 'Explique-moi comme à un débutant (IA)') + '</button></div>' +
+      '<div class="cyac-tabs">' + [['path', '🧭 ' + L('Learning path', 'Parcours')], ['basics', '🌱 ' + L('Beginner lessons', 'Leçons débutant')], ['cnd', '🎓 ' + L('CND Academy', 'Académie CND')], ['chal', '⚡ ' + L('Challenges', 'Défis')], ['scen', '🧪 ' + L('Scenarios & missions', 'Scénarios et missions')], ['coach', '🧠 ' + L('My coach', 'Mon coach')],['lab', '🧊 ' + L('3D lab', 'Labo 3D')], ['dict', '📖 ' + L('Dictionary', 'Dictionnaire')], ['progress', '🏆 ' + L('My progress', 'Ma progression')]].map(([k, n]) => '<button type="button" data-tab="' + k + '" class="' + (tab === k ? 'on' : '') + '">' + n + '</button>').join('') +
+      '<button type="button" data-a="tutor">🧒 ' + L('Explain like I’m a beginner (AI)', 'Explique-moi comme à un débutant (IA)') + '</button>' + (window.CYLAB ? '<button type="button" data-a="lab">🧪 ' + L('Training lab', 'Laboratoire') + '</button>' : '') + '</div>' +
       '<div class="cyac-body">' + body() + '</div></div>';
     const s = dlg.querySelector('.cyac-search'); if (s && sel.focus) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); sel.focus = false; }
     const cnd = dlg.querySelector('.cyac-cnd'); if (cnd && window.CYNDT) window.CYNDT.mount(cnd, ndtApi);
     const chal = dlg.querySelector('.cyac-chal'); if (chal && window.CYCHAL) window.CYCHAL.mount(chal, { record: (id, info) => record(id, info, true), level: currentLevel, tutor: (q) => tutor(q) });
+    const insightApi = { record: (id, info) => record(id, info, true), tutor: (q) => tutor(q), go };
+    const coachEl = dlg.querySelector('.cyac-coach'); if (coachEl && window.CYINSIGHT) window.CYINSIGHT.mountCoach(coachEl, insightApi);
+    const dashEl = dlg.querySelector('.cyac-dash'); if (dashEl && window.CYINSIGHT) window.CYINSIGHT.mountDashboard(dashEl, insightApi);
     const scen = dlg.querySelector('.cyac-scen'); if (scen && window.CYSCEN) window.CYSCEN.mount(scen, { record: (id, info) => record(id, info, true), tutor: (q) => tutor(q), review });
+  }
+  // one navigation entry point for the coach, analytics, workspace, twins and missions:
+  // { tab } | { mod: method, id? } | { sim } | { study } | { dict } | { ws: area } | { twin: dept }
+  function go(act) {
+    if (!act) return;
+    if (act.tab) { if (!dlg) open(act.tab); else openTab(act.tab); return; }
+    if (act.mod) { if (!dlg) open('cnd'); if (window.CYNDT) window.CYNDT.open(act.mod, act.id); return openTab('cnd'); }
+    if (act.sim) return ndtApi.tryIt(act.sim);
+    if (act.study != null) return goStudy(act.study === 1 ? undefined : act.study)();
+    if (act.dict) { if (!dlg) open('dict'); tab = 'dict'; sel.term = act.dict; sel.q = ''; return record('dict:' + act.dict); }
+    if (act.ws) { close(); if (window.CYWORK) window.CYWORK.open(act.ws); return; }
+    if (act.twin) { close(); if (window.CYTWIN) window.CYTWIN.open(act.twin); return; }
   }
   // debrief links from a scenario: { mod: [method, id] } | { sim } | { study } | { dict }
   function review(rv) {
@@ -340,6 +365,7 @@ html.field .cyac-level, html.field .cyac-card { background: #fff; }
       return '<p>' + L('Start here if you know nothing about inspection. Each lesson takes about 3 minutes.', 'Commencez ici si vous ne connaissez rien à l’inspection. Chaque leçon dure environ 3 minutes.') + '</p><div class="cyac-grid">' + BASICS.map((b, i) => '<button type="button" class="cyac-card' + (has('basic:' + b.id) ? ' done' : '') + '" data-lesson="' + b.id + '"><b>' + b.icon + ' ' + (i + 1) + '. ' + esc(T2(b.t)) + '</b><span>' + (has('basic:' + b.id) ? '✓ ' + L('Completed', 'Terminée') : L('About 3 min', 'Environ 3 min')) + '</span></button>').join('') + '</div>';
     }
     if (tab === 'chal') return window.CYCHAL ? '<div class="cyac-chal"></div>' : '<p class="cyac-note">' + L('The challenges could not be loaded.', 'Les défis n’ont pas pu être chargés.') + '</p>';
+    if (tab === 'coach') return window.CYINSIGHT ? '<div class="cyac-coach"></div>' : '<p class="cyac-note">' + L('The coach could not be loaded.', 'Le coach n’a pas pu être chargé.') + '</p>';
     if (tab === 'scen') return window.CYSCEN ? '<div class="cyac-scen"></div>' : '<p class="cyac-note">' + L('The scenarios could not be loaded.', 'Les scénarios n’ont pas pu être chargés.') + '</p>';
     if (tab === 'cnd') return window.CYNDT ? '<div class="cyac-cnd"></div>' : '<p class="cyac-note">' + L('The CND modules could not be loaded.', 'Les modules CND n’ont pas pu être chargés.') + '</p>';
     if (tab === 'lab') {
@@ -355,7 +381,7 @@ html.field .cyac-level, html.field .cyac-card { background: #fff; }
     }
     // progress
     const s = study(), courses = ['VT', 'PT', 'MT', 'UT', 'RT', 'APVG', 'APL', 'APE'].filter(coursePassed);
-    return '<div class="cyac-grid">' + [
+    return (window.CYINSIGHT ? '<div class="cyac-dash"></div><h3>🧾 ' + L('Course and activity counters', 'Compteurs de cours et d’activités') + '</h3>' : '') + '<div class="cyac-grid">' + [
       ['⭐', 'XP', xp()], ['🎚', L('Current level', 'Niveau actuel'), currentLevel() + ' / 5'], ['🔥', L('Day streak', 'Jours de suite'), streak()], ['📅', L('Learning days', 'Jours d’apprentissage'), P.days.length],
       ['🌱', L('Beginner lessons', 'Leçons débutant'), countPrefix('basic:') + ' / ' + BASICS.length],
       ['⚡', L('Challenges answered / correct · daily challenges', 'Défis répondus / justes · défis du jour'), ((P.ev.chal || {}).n || 0) + ' / ' + ((P.ev.chal || {}).ok || 0) + ' · ' + countPrefix('daily:')],
@@ -401,6 +427,7 @@ html.field .cyac-level, html.field .cyac-card { background: #fff; }
     const b = e.target.closest('button'); if (!b) return;
     const d = b.dataset;
     if (d.a === 'close') return close();
+    if (d.a === 'lab') { close(); if (window.CYLAB) window.CYLAB.open(); return; }
     if (d.tab) return openTab(d.tab);
     if (d.lesson) { tab = 'basics'; sel.lesson = d.lesson; render(); dlg.querySelector('.cyac-body').scrollTop = 0; return; }
     if (d.o != null) {
@@ -456,6 +483,6 @@ html.field .cyac-level, html.field .cyac-card { background: #fff; }
     actions.insertBefore(b, actions.querySelector('#back') ? actions.querySelector('#back').nextSibling : actions.firstChild);
     const sw = document.getElementById('lang'); if (sw) sw.addEventListener('change', () => { label(); if (dlg) render(); });
   }
-  window.CYACADEMY = { open, record, level: currentLevel, xp, DICT, BASICS, LEVELS };
+  window.CYACADEMY = { open, record, level: currentLevel, xp, DICT, BASICS, LEVELS, events: () => P.ev, go: (act) => go(act) };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', headerButton); else headerButton();
 }());

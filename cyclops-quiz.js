@@ -190,6 +190,7 @@
     answered = true;
     const question = questions[questionIndex];
     const correct = index === question.correct;
+    window.dispatchEvent(new CustomEvent('cy-answer', { detail: { src: 'quiz', area: question.method, skill: 'knowledge', ok: correct, q: question.prompt, given: question.choices[index], right: question.choices[question.correct], why: question.reason } }));
     if (correct) score++;
     answers.push(correct);
     root.querySelectorAll('[data-choice]').forEach((button) => {
