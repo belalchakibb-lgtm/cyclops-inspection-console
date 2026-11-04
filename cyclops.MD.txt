@@ -876,6 +876,12 @@ Sauvegarde des fichiers d'origine : _backup-2026-11-03/
 - Base de connaissances : nouveau type de source « Guide d'étude ASME/API » (résumé pédagogique, édition à vérifier), aussi utilisable par l'assistant principal. Nouveau test serveur (8 tests).
 - Constat : le modèle NVIDIA actuel (llama-3.2-90b-vision) est trop lent sur l'offre gratuite pour les réponses longues (délai dépassé) ; à revoir (autre modèle ou clé Anthropic).
 
+### Page d'accueil avec vidéo de présentation et menu
+- Nouveau fichier cyclops-home.js : CYCLOPS s'ouvre sur une page d'accueil avec une vidéo animée (dessinée en direct, 10 chapitres ≈ 75 s : bienvenue, 4 départements, procédures 3D, simulateurs, Académie, formateur IA, laboratoire, missions et coach, inspections terrain, par où commencer), sous-titres FR/EN, voix off optionnelle (synthèse vocale du navigateur), boutons de chapitres, pause, plein écran, bouton « Y aller » vers la fonction présentée.
+- Sous la vidéo : menu de toutes les fonctions (Apprendre, S'entraîner, Laboratoire, Terrain, Procédures et 3D par département).
+- En-tête simplifié : 🏠 Accueil, ☰ Menu (panneau latéral avec tout le contenu, accessible de partout), Mode terrain, langue. Les anciens boutons (Académie, Labo, Formateur ASME/API, Inspections terrain, Quiz) restent dans la page pour les modules qui les utilisent, mais sont masqués.
+- Les liens vers une méthode (Académie, simulateurs) quittent automatiquement l'accueil. Correction : simulateurs MT/PT n'essaient plus de dessiner sur un canevas masqué (erreur de rayon négatif).
+
 ### CYCLOPS 1.3 — laboratoire de formation avancé (version 1.3.0)
 - Moteur d'apprentissage (nouveau cyclops-insight.js) : chaque réponse (modules CND, défis, scénarios, missions, quiz, leçons ASME/API, jumeaux) est enregistrée sur l'appareil via l'événement « cy-answer ». Maîtrise par discipline (réponses récentes pondérées), points faibles domaine × compétence, temps d'apprentissage (seulement page visible et utilisée), progrès sur 6 semaines, historique.
 - Onglet Académie « 🧠 Mon coach » : points faibles, révisions conseillées (module, simulateur, atelier, jumeau), analyse de chaque erreur avec cause possible déduite des nombres (×2, ÷2, virgule, mm/pouce, bar/psi), exercice ciblé généré par le moteur de défis, analyse IA réelle (mode serveur « coach »). Onglet « Ma progression » : tableau de bord analytique.

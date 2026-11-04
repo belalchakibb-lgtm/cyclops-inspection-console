@@ -76,6 +76,7 @@ html.field .cysurf-panel { background: #fff; } html.field .cysurf-ctrl select { 
     if (!mt.rewarded && MT_CRACKS.every((c) => mt.found[c.id])) { mt.rewarded = true; learn('mt-sim', { score: 100 }); }
   }
   function mtDraw(cv, t) {
+    if (cv.clientWidth < 40 || cv.clientHeight < 40) return; // hidden page: nothing to draw
     const { g, w, h } = fit(cv), sc = Math.min((w - 20) / 300, (h - 20) / 180), ox = (w - 300 * sc) / 2, oy = (h - 180 * sc) / 2;
     const X = (x) => ox + x * sc, Y = (y) => oy + y * sc, uv = mt.last && mt.last.part === 'wet-fluo';
     g.fillStyle = uv ? '#05060c' : '#0b1530'; g.fillRect(0, 0, w, h);
@@ -158,6 +159,7 @@ html.field .cysurf-panel { background: #fff; } html.field .cysurf-ctrl select { 
     if (pt.ran.score >= 100) learn('pt-sim', { score: 100 });
   }
   function ptDraw(cv, t) {
+    if (cv.clientWidth < 40 || cv.clientHeight < 40) return; // hidden page: nothing to draw
     const { g, w, h } = fit(cv), sc = Math.min((w - 20) / 300, (h - 20) / 180), ox = (w - 300 * sc) / 2, oy = (h - 180 * sc) / 2;
     const X = (x) => ox + x * sc, Y = (y) => oy + y * sc, r = pt.ran, fluo = pt.type === 'fluo', p = r ? clamp((t - pt.t0) / 1800, 0, 1) : 0;
     g.fillStyle = fluo ? '#05060c' : '#0b1530'; g.fillRect(0, 0, w, h);
