@@ -876,6 +876,13 @@ Sauvegarde des fichiers d'origine : _backup-2026-11-03/
 - Base de connaissances : nouveau type de source « Guide d'étude ASME/API » (résumé pédagogique, édition à vérifier), aussi utilisable par l'assistant principal. Nouveau test serveur (8 tests).
 - Constat : le modèle NVIDIA actuel (llama-3.2-90b-vision) est trop lent sur l'offre gratuite pour les réponses longues (délai dépassé) ; à revoir (autre modèle ou clé Anthropic).
 
+### Guide vidéo complet et cours professionnels
+- Nouveau cyclops-guide.js : le guide remplace la courte animation de l'accueil. 48 étapes en 9 chapitres (≈ 18 min), sur de VRAIES captures de l'application (EN et FR), avec zoom, curseur, surbrillance du bouton, sous-titres et voix phrase par phrase ; chaque étape dit ce que c'est, à quoi ça sert et comment l'utiliser, avec « Essayer maintenant » et une liste des chapitres.
+- tools/capture-guide.mjs régénère les captures (guide/<langue>/*.jpg et guide/manifest.json) avec un profil temporaire. À relancer quand l'interface change : node tools/capture-guide.mjs. Serveur : seules les images /guide/en|fr/<nom>.jpg sont servies, après connexion.
+- Nouveau cyclops-procourse.js : cours professionnels commentés UT, RT, MT, PT, VT, APVG, APL, APE (29 diapositives) avec exigences et critères : blocs d'étalonnage et trous selon l'épaisseur (ASME V T-434.2.1, avec calculateur), séquence d'étalonnage, ASME VIII annexes 12/6/8, UW-51/UW-35, ISO 11666, densité et IQI (avec calculateur), épreuves UG-99/UG-100, API 510, ASME B30.2/B30.10, ISO 4309, IEC 60364.
+- Chaque tableau cite sa source et porte un badge : « recoupé » (sources publiques secondaires, 3 tableaux) ou « à vérifier » (connaissances de formation, 19 tableaux). Les codes sont payants et n'ont pas pu être consultés : ce sont des résumés de travail, l'édition en vigueur décide. Non donnés car non vérifiés : intervalles du décret algérien 90-245, chiffres de dépose ISO 4309.
+- Bouton « Cours professionnel » sur chaque page de méthode ; entrées dans le menu et le laboratoire. Nouveau test serveur (12 tests).
+
 ### Page d'accueil avec vidéo de présentation et menu
 - Nouveau fichier cyclops-home.js : CYCLOPS s'ouvre sur une page d'accueil avec une vidéo animée (dessinée en direct, 10 chapitres ≈ 75 s : bienvenue, 4 départements, procédures 3D, simulateurs, Académie, formateur IA, laboratoire, missions et coach, inspections terrain, par où commencer), sous-titres FR/EN, voix off optionnelle (synthèse vocale du navigateur), boutons de chapitres, pause, plein écran, bouton « Y aller » vers la fonction présentée.
 - Sous la vidéo : menu de toutes les fonctions (Apprendre, S'entraîner, Laboratoire, Terrain, Procédures et 3D par département).

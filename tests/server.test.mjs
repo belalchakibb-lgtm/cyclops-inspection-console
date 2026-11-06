@@ -56,10 +56,19 @@ after(() => { server && server.kill(); fakeAi && fakeAi.close(); });
 
 test('project files that are not part of the app are never served', async () => {
   const { cookie } = await login();
-  for (const path of ['/server.mjs', '/kb.mjs', '/.git/config', '/.env', '/package.json', '/CYCLOPS-Project.zip', '/Untitled-1%20U.py', '/node.js', '/data/audit.jsonl', '/documents/README.md', '/_backup-2026-11-03/index.html', '/..%2fserver.mjs']) {
+  for (const path of ['/server.mjs', '/kb.mjs', '/.git/config', '/.env', '/package.json', '/CYCLOPS-Project.zip', '/Untitled-1%20U.py', '/node.js', '/data/audit.jsonl', '/documents/README.md', '/_backup-2026-11-03/index.html', '/..%2fserver.mjs', '/guide/en/..%2f..%2fserver.mjs', '/guide/en/missing.jpg', '/guide/en/welcome.png', '/guide/de/welcome.jpg', '/tools/capture-guide.mjs']) {
     const r = await fetch(base + path, { headers: { cookie }, redirect: 'manual' });
     assert.equal(r.status, 404, `${path} should be 404, got ${r.status}`);
   }
+});
+
+test('guide screenshots are served as images after sign-in only', async () => {
+  assert.equal((await fetch(`${base}/guide/en/welcome.jpg`, { redirect: 'manual' })).status, 302);
+  const cookie = await asInspector();
+  const r = await fetch(`${base}/guide/en/welcome.jpg`, { headers: { cookie } });
+  assert.equal(r.status, 200);
+  assert.equal(r.headers.get('content-type'), 'image/jpeg');
+  assert.equal((await fetch(`${base}/guide/manifest.json`, { headers: { cookie } })).status, 200);
 });
 
 test('pages require sign-in; login page and icons do not', async () => {

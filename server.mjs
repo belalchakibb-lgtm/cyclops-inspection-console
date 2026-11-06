@@ -54,14 +54,14 @@ const PUBLIC_FILES = new Map([
   ['/cyclops-procs.js', 'cyclops-procs.js'], ['/cyclops-courses.js', 'cyclops-courses.js'], ['/cyclops3D.js', 'cyclops3D.js'],
   ['/cyclops-quiz.js', 'cyclops-quiz.js'], ['/cyclops-tools.js', 'cyclops-tools.js'], ['/cyclops-field.css', 'cyclops-field.css'],
   ['/cyclops-utsim.js', 'cyclops-utsim.js'], ['/cyclops-rtsim.js', 'cyclops-rtsim.js'],
-  ['/cyclops-gl.js', 'cyclops-gl.js'], ['/cyclops-study.js', 'cyclops-study.js'], ['/cyclops-academy.js', 'cyclops-academy.js'], ['/cyclops-ndt-academy.js', 'cyclops-ndt-academy.js'], ['/cyclops-surfsim.js', 'cyclops-surfsim.js'], ['/cyclops-challenges.js', 'cyclops-challenges.js'], ['/cyclops-scenarios.js', 'cyclops-scenarios.js'], ['/cyclops-insight.js', 'cyclops-insight.js'], ['/cyclops-lab.js', 'cyclops-lab.js'], ['/cyclops-workspace.js', 'cyclops-workspace.js'], ['/cyclops-twin.js', 'cyclops-twin.js'], ['/cyclops-defects3d.js', 'cyclops-defects3d.js'], ['/cyclops-home.js', 'cyclops-home.js'],['/vendor/three.module.min.js', 'vendor/three.module.min.js'],
+  ['/cyclops-gl.js', 'cyclops-gl.js'], ['/cyclops-study.js', 'cyclops-study.js'], ['/cyclops-academy.js', 'cyclops-academy.js'], ['/cyclops-ndt-academy.js', 'cyclops-ndt-academy.js'], ['/cyclops-surfsim.js', 'cyclops-surfsim.js'], ['/cyclops-challenges.js', 'cyclops-challenges.js'], ['/cyclops-scenarios.js', 'cyclops-scenarios.js'], ['/cyclops-insight.js', 'cyclops-insight.js'], ['/cyclops-lab.js', 'cyclops-lab.js'], ['/cyclops-workspace.js', 'cyclops-workspace.js'], ['/cyclops-twin.js', 'cyclops-twin.js'], ['/cyclops-defects3d.js', 'cyclops-defects3d.js'], ['/cyclops-home.js', 'cyclops-home.js'], ['/cyclops-guide.js', 'cyclops-guide.js'], ['/cyclops-procourse.js', 'cyclops-procourse.js'], ['/guide/manifest.json', 'guide/manifest.json'],['/vendor/three.module.min.js', 'vendor/three.module.min.js'],
   ['/manifest.webmanifest', 'manifest.webmanifest'], ['/sw.js', 'sw.js'],
   ['/icons/icon-192.png', 'icons/icon-192.png'], ['/icons/icon-512.png', 'icons/icon-512.png'], ['/icons/icon.svg', 'icons/icon.svg']
 ]);
 const NO_AUTH_FILES = new Set(['login.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon.svg']);
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
-  '.png': 'image/png', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json; charset=utf-8'
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json; charset=utf-8'
 };
 const securityHeaders = {
   'X-Content-Type-Options': 'nosniff',
@@ -433,7 +433,9 @@ export async function serve(request, response) {
   if (path === '/api/health') return json(response, 200, { ok: true, provider: providerLabel, configured: Boolean(apiKey()), authEnabled: authConfigured });
 
   const session = readSession(request);
-  const file = PUBLIC_FILES.get(path);
+  // video guide screenshots: only /guide/en|fr/<scene>.jpg, no other path form
+  const guideShot = /^\/guide\/(en|fr)\/[a-z0-9-]+\.jpg$/.test(path) ? path.slice(1) : null;
+  const file = PUBLIC_FILES.get(path) || guideShot;
   if (!session && !(file && NO_AUTH_FILES.has(file))) {
     if (path.startsWith('/api/') || path === '/sw.js') return json(response, 401, { error: 'Sign in to use CYCLOPS.' });
     response.writeHead(302, { Location: '/login', 'Cache-Control': 'no-store', ...securityHeaders });

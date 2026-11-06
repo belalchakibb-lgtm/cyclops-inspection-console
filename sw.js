@@ -1,8 +1,8 @@
 /* CYCLOPS service worker: keeps the app usable offline on site.
    Bump VERSION whenever a cached file changes so devices pick up the update. */
-const VERSION = 'cyclops-v2026-11-04c';
+const VERSION = 'cyclops-v2026-11-06a';
 const SHELL = [
-  '/', '/cyclops-study.js', '/cyclops-academy.js', '/cyclops-ndt-academy.js', '/cyclops-surfsim.js', '/cyclops-challenges.js', '/cyclops-scenarios.js', '/cyclops-insight.js', '/cyclops-lab.js', '/cyclops-workspace.js', '/cyclops-twin.js', '/cyclops-defects3d.js', '/cyclops-home.js','/cyclops-procs.js', '/cyclops-courses.js', '/cyclops3D.js', '/cyclops-gl.js', '/vendor/three.module.min.js', '/cyclops-utsim.js', '/cyclops-rtsim.js', '/cyclops-quiz.js', '/cyclops-tools.js',
+  '/', '/cyclops-study.js', '/cyclops-academy.js', '/cyclops-ndt-academy.js', '/cyclops-surfsim.js', '/cyclops-challenges.js', '/cyclops-scenarios.js', '/cyclops-insight.js', '/cyclops-lab.js', '/cyclops-workspace.js', '/cyclops-twin.js', '/cyclops-defects3d.js', '/cyclops-home.js', '/cyclops-guide.js', '/cyclops-procourse.js','/cyclops-procs.js', '/cyclops-courses.js', '/cyclops3D.js', '/cyclops-gl.js', '/vendor/three.module.min.js', '/cyclops-utsim.js', '/cyclops-rtsim.js', '/cyclops-quiz.js', '/cyclops-tools.js',
   '/cyclops-field.css', '/manifest.webmanifest', '/icons/icon.svg', '/icons/icon-192.png', '/icons/icon-512.png'
 ];
 

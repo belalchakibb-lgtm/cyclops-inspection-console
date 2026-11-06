@@ -121,8 +121,10 @@
   <script src="./cyclops-workspace.js"></script>
   <script src="./cyclops-twin.js"></script>
   <script src="./cyclops-defects3d.js"></script>
+  <script src="./cyclops-procourse.js"></script>
   <script src="./cyclops-quiz.js"></script>
   <script src="./cyclops-tools.js"></script>
+  <script src="./cyclops-guide.js"></script>
   <script src="./cyclops-home.js"></script>
   <script>
     (function () {
@@ -190,13 +192,14 @@
         const equipmentHtml = '<details open><summary>' + text('Equipment and operating principle', 'Équipements et principe de fonctionnement') + '</summary><div class="equipment-grid">' + equipment.map((item, index) => { const localized = window.CY3 && window.CY3.equipmentText ? window.CY3.equipmentText(current, index, item) : item; return '<article class="equipment-card" tabindex="0" role="button" data-equipment="' + index + '"><strong>' + localized[0] + '</strong><span>' + localized[1] + '</span></article>'; }).join('') + '</div></details>';
         const hseHtml = '<details><summary>' + text('HSE procedure to use', 'Consignes de santé et sécurité') + '</summary><ul class="hse-list">' + (translated.hse || p.hse || []).map((item) => '<li>' + item + '</li>').join('') + '</ul></details>';
         const codes = p.codes.map((item, index) => [item[0], translated.codes && translated.codes[index] || item[1]]);
-        body.innerHTML = '<h2>' + translated.name + '</h2><button type="button" class="cy-course-launch" data-course="' + current + '">🎓 ' + text('Start full course with 3D instructor', 'Commencer le cours complet avec le formateur 3D') + '</button>' + equipmentHtml + hseHtml + translated.steps.map((step) => '<details open><summary>' + step[0] + '</summary><ul>' + step[1].map((item) => '<li>' + item + '</li>').join('') + '</ul></details>').join('') + '<details><summary>' + text('Codes and references', 'Codes et références') + '</summary><ul>' + codes.map((item) => '<li><b>' + item[0] + '</b>: ' + item[1] + '</li>').join('') + '</ul></details>';
+        body.innerHTML = '<h2>' + translated.name + '</h2><button type="button" class="cy-course-launch" data-course="' + current + '">🎓 ' + text('Start full course with 3D instructor', 'Commencer le cours complet avec le formateur 3D') + '</button>' + (current !== 'OTH' ? ' <button type="button" class="cy-course-launch" data-procourse="' + current + '">🎖 ' + text('Professional course: codes and acceptance criteria', 'Cours professionnel : codes et critères d’acceptation') + '</button>' : '') + equipmentHtml + hseHtml + translated.steps.map((step) => '<details open><summary>' + step[0] + '</summary><ul>' + step[1].map((item) => '<li>' + item + '</li>').join('') + '</ul></details>').join('') + '<details><summary>' + text('Codes and references', 'Codes et références') + '</summary><ul>' + codes.map((item) => '<li><b>' + item[0] + '</b>: ' + item[1] + '</li>').join('') + '</ul></details>';
         const active = tabs.querySelector('[data-pm="' + current + '"]');
         if (active) active.classList.add('on');
       }
       tabs.addEventListener('click', (event) => { const button = event.target.closest('[data-pm]'); if (button) { current = button.dataset.pm; render(); } });
       body.addEventListener('click', (event) => { const card = event.target.closest('[data-equipment]'); if (card) window.CY3 && window.CY3.openEquipment(current, Number(card.dataset.equipment)); });
       body.addEventListener('click', (event) => { const button = event.target.closest('[data-course]'); if (button) window.CY3 && window.CY3.openCourse(button.dataset.course); });
+      body.addEventListener('click', (event) => { const button = event.target.closest('[data-procourse]'); if (button) window.CYPRO && window.CYPRO.open(button.dataset.procourse); });
       body.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { const card = event.target.closest('[data-equipment]'); if (card) { event.preventDefault(); window.CY3 && window.CY3.openEquipment(current, Number(card.dataset.equipment)); } } });
       const photoInput = document.getElementById('photo-search-input');
       const photoSearchButton = document.getElementById('photo-search');
