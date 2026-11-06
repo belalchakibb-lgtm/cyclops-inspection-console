@@ -100,14 +100,29 @@
     return { T: `${t} ± 25 mm`, d: L(`${mm} mm (5 + 1.5 × ${extra})`, `${String(mm).replace('.', ',')} mm (5 + 1,5 × ${extra})`) };
   }
   const IQI = [[6.4, 12, 5], [9.5, 15, 6], [12.7, 17, 7], [19, 20, 8], [25.4, 25, 9], [38, 30, 10], [50.8, 35, 11], [63.5, 40, 12], [101.6, 50, 13]];
+  const nf = (v, n) => L(Number(v).toFixed(n), Number(v).toFixed(n).replace('.', ','));
+  const lenLimit = (t) => (t <= 19 ? 6 : t <= 57 ? t / 3 : 19);
+  const ugLimit = (t) => (t < 50.8 ? 0.51 : t <= 76.2 ? 0.76 : t <= 101.6 ? 1.02 : 1.78);
+  // { fields: [key, [en, fr], default, unit], run(values) → text }
+  const TOOLS = {
+    block: { f: [['t', ['Your weld thickness', 'Votre épaisseur de soudure'], 32, 'mm']], run: (v) => { const r = blockFor(v.t); return L(`Block: ${r.T} · holes Ø ${r.d}`, `Bloc : ${r.T} · trous Ø ${r.d}`); } },
+    iqi: { f: [['t', ['Thickness for IQI (wall + allowed reinforcement)', 'Épaisseur pour l’IQI (paroi + renfort admis)'], 16, 'mm']], run: (v) => { const r = IQI.find((x) => v.t <= x[0]); return r ? L(`Hole type ${r[1]} · essential wire ${r[2]} (source side)`, `Type à trous ${r[1]} · fil essentiel ${r[2]} (côté source)`) : L('Above this table: use the full code table.', 'Au-delà de ce tableau : utilisez le tableau complet du code.'); } },
+    near: { f: [['D', ['Crystal diameter D', 'Diamètre du cristal D'], 10, 'mm'], ['f', ['Frequency f', 'Fréquence f'], 4, 'MHz'], ['V', ['Velocity V', 'Vitesse V'], 5920, 'm/s']], run: (v) => { const lam = v.V / (v.f * 1000), N = v.D * v.D / (4 * lam), sn = 1.22 * lam / v.D; return L(`λ = ${nf(lam, 2)} mm · near field N = D² ÷ 4λ = ${nf(N, 1)} mm · beam half-angle to zero ≈ ${sn < 1 ? nf(Math.asin(sn) * 180 / Math.PI, 1) + '°' : '—'}`, `λ = ${nf(lam, 2)} mm · champ proche N = D² ÷ 4λ = ${nf(N, 1)} mm · demi-angle jusqu’au zéro ≈ ${sn < 1 ? nf(Math.asin(sn) * 180 / Math.PI, 1) + '°' : '—'}`); } },
+    skip: { f: [['T', ['Thickness T', 'Épaisseur T'], 25, 'mm'], ['a', ['Probe angle', 'Angle du traducteur'], 60, '°']], run: (v) => { const k = v.T * Math.tan(v.a * Math.PI / 180), S = v.T / Math.cos(v.a * Math.PI / 180); return L(`Half skip ${nf(k, 1)} mm · full skip ${nf(2 * k, 1)} mm · sound path per leg ${nf(S, 1)} mm → set a range above ${nf(2 * S, 0)} mm`, `Demi-bond ${nf(k, 1)} mm · bond ${nf(2 * k, 1)} mm · parcours par branche ${nf(S, 1)} mm → réglez une plage supérieure à ${nf(2 * S, 0)} mm`); } },
+    limit: { f: [['t', ['Thickness t', 'Épaisseur e'], 32, 'mm']], run: (v) => L(`Maximum length: ${nf(lenLimit(v.t), 1)} mm`, `Longueur maximale : ${nf(lenLimit(v.t), 1)} mm`) },
+    ug: { f: [['F', ['Source size F', 'Taille de la source F'], 3, 'mm'], ['d', ['Object-to-film distance d', 'Distance objet-film d'], 25, 'mm'], ['D', ['Source-to-object distance D', 'Distance source-objet D'], 400, 'mm'], ['t', ['Thickness (IQI basis)', 'Épaisseur (base IQI)'], 25, 'mm']], run: (v) => { const u = v.F * v.d / v.D, lim = ugLimit(v.t), minD = v.F * v.d / lim; return L(`Ug = ${nf(u, 2)} mm · limit ${nf(lim, 2)} mm → ${u <= lim ? 'OK' : 'TOO HIGH'} · minimum D = ${nf(minD, 0)} mm`, `Ug = ${nf(u, 2)} mm · limite ${nf(lim, 2)} mm → ${u <= lim ? 'OK' : 'TROP ÉLEVÉ'} · D minimal = ${nf(minD, 0)} mm`); } },
+    expo: { f: [['t1', ['Known good exposure', 'Pose correcte connue'], 4, 'min'], ['F1', ['at distance', 'à la distance'], 500, 'mm'], ['A1', ['with activity', 'avec l’activité'], 1500, 'GBq'], ['F2', ['New distance', 'Nouvelle distance'], 700, 'mm'], ['A2', ['New activity', 'Nouvelle activité'], 750, 'GBq']], run: (v) => { const t = v.t1 * Math.pow(v.F2 / v.F1, 2) * v.A1 / v.A2; return L(`New exposure = ${nf(v.t1, 1)} × (${v.F2} ÷ ${v.F1})² × (${v.A1} ÷ ${v.A2}) = ${nf(t, 1)} min — confirm on a test film`, `Nouvelle pose = ${nf(v.t1, 1)} × (${v.F2} ÷ ${v.F1})² × (${v.A1} ÷ ${v.A2}) = ${nf(t, 1)} min — à confirmer sur film d’essai`); } },
+    shield: { f: [['r', ['Dose rate without shield', 'Débit de dose sans écran'], 800, 'µSv/h'], ['g', ['Wanted dose rate', 'Débit de dose voulu'], 25, 'µSv/h'], ['h', ['Half-value layer (lead)', 'Couche de demi-atténuation (plomb)'], 5, 'mm']], run: (v) => { const n = Math.max(0, Math.log2(v.r / v.g)); return L(`${nf(n, 1)} half-value layers → about ${nf(n * v.h, 1)} mm of lead (estimate; check with the survey meter)`, `${nf(n, 1)} couches de demi-atténuation → environ ${nf(n * v.h, 1)} mm de plomb (estimation ; à vérifier au radiamètre)`); } }
+  };
   function toolHtml(k) {
-    const label = k === 'block' ? L('Your weld thickness', 'Votre épaisseur de soudure') : L('Thickness for IQI (wall + allowed reinforcement)', 'Épaisseur pour l’IQI (paroi + renfort admis)');
-    return `<div class="cypc-tool"><b>🧮 ${L('Try it', 'Essayez')}</b> <label>${esc(label)} <input data-pc-t="${k}" type="number" min="1" value="${k === 'block' ? 32 : 16}"> mm</label> <span data-pc-o></span></div>`;
+    const c = TOOLS[k];
+    return `<div class="cypc-tool" data-pc-tool="${k}"><b>🧮 ${L('Try it', 'Essayez')}</b> ${c.f.map(([n, l, d, u]) => `<label>${esc(T2(l))} <input data-pc-f="${n}" type="number" min="0" step="any" value="${d}"> ${esc(u)}</label>`).join(' ')} <span data-pc-out></span></div>`;
   }
-  function toolResult(k, v) {
-    if (!(v > 0)) return '—';
-    if (k === 'block') { const r = blockFor(v); return L(`Block: ${r.T} · holes Ø ${r.d}`, `Bloc : ${r.T} · trous Ø ${r.d}`); }
-    const r = IQI.find((x) => v <= x[0]); return r ? L(`Hole type ${r[1]} · essential wire ${r[2]} (source side)`, `Type à trous ${r[1]} · fil essentiel ${r[2]} (côté source)`) : L('Above this table: use the full code table.', 'Au-delà de ce tableau : utilisez le tableau complet du code.');
+  function refreshTool() {
+    const box = ui.body.querySelector('[data-pc-tool]'); if (!box) return;
+    const c = TOOLS[box.dataset.pcTool], v = {}; let ok = true;
+    box.querySelectorAll('[data-pc-f]').forEach((i) => { v[i.dataset.pcF] = Number(i.value); if (!(Number(i.value) > 0)) ok = false; });
+    box.querySelector('[data-pc-out]').textContent = ok ? c.run(v) : '—';
   }
 
   /* ---------- player ---------- */
@@ -119,7 +134,7 @@
 .cypc-slide h2 { margin: 0 0 10px; } .cypc-slide li { margin: 8px 0; line-height: 1.5; transition: opacity .3s, color .3s; color: #93a3cc; } .cypc-slide li.seen { color: #dce6ff; } .cypc-slide li.on { color: #fff; font-weight: 600; } .cypc-slide li.wait { opacity: .28; }
 .cypc-table { width: 100%; border-collapse: collapse; margin: 12px 0 4px; font-size: 14px; } .cypc-table th { text-align: left; background: rgba(61,169,255,.16); padding: 7px 9px; } .cypc-table td { border-top: 1px solid var(--line); padding: 7px 9px; font-variant-numeric: tabular-nums; }
 .cypc-src { font-size: 12px; color: var(--muted); margin: 4px 0 8px; } .cypc-st { display: inline-block; border-radius: 99px; padding: 1px 8px; font-weight: 700; font-size: 11px; margin-right: 6px; } .cypc-st.checked { background: rgba(28,106,78,.6); color: #7de2b5; } .cypc-st.verify { background: rgba(130,96,20,.6); color: #ffd27a; }
-.cypc-tool { border: 1px dashed var(--blue); border-radius: 8px; padding: 8px 10px; margin: 8px 0; } .cypc-tool input { width: 80px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--text); padding: 5px 7px; font: inherit; } .cypc-tool span { display: block; color: #7de2b5; font-weight: 700; margin-top: 4px; }
+.cypc-tool { border: 1px dashed var(--blue); border-radius: 8px; padding: 8px 10px; margin: 8px 0; } .cypc-tool label { display: inline-block; margin: 3px 8px 3px 0; } .cypc-exam > div { border-top: 1px solid var(--line); padding: 8px 0; } .cypc-exam button.sel { border-color: var(--blue); background: rgba(61,169,255,.2); } .cypc-exam button { display: block; width: 100%; text-align: left; margin: 3px 0; } .cypc-exam .ok { border-color: #42c991; background: rgba(28,106,78,.45); } .cypc-exam .ko { border-color: #e66b78; background: rgba(130,47,61,.4); } .cypc-tool input { width: 80px; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--text); padding: 5px 7px; font: inherit; } .cypc-tool span { display: block; color: #7de2b5; font-weight: 700; margin-top: 4px; }
 .cypc-q { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 8px; } .cypc-q button { display: block; width: 100%; text-align: left; margin: 4px 0; } .cypc-q .ok { border-color: #42c991; background: rgba(28,106,78,.45); } .cypc-q .ko { border-color: #e66b78; background: rgba(130,47,61,.4); }
 .cypc-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 10px; } .cypc-bar .sp { flex: 1; } .cypc-prog { height: 5px; border-radius: 99px; background: rgba(255,255,255,.1); overflow: hidden; margin: 0 0 10px; } .cypc-prog i { display: block; height: 100%; background: linear-gradient(90deg, var(--blue), var(--violet)); transition: width .3s; }
 @media (max-width: 760px) { .cypc-layout { grid-template-columns: minmax(0, 1fr); } .cypc-side { display: flex; overflow-x: auto; gap: 4px; } .cypc-side button { white-space: nowrap; width: auto; } .cypc-table { font-size: 12.5px; } }
@@ -147,22 +162,30 @@
   }
   function start(m) { st.m = m; st.i = 0; st.playing = false; draw(); window.CY_LESSON = L('Professional course: ', 'Cours professionnel : ') + T2(COURSES[m].name); window.dispatchEvent(new CustomEvent('cy-learn', { detail: { id: 'pro:' + m } })); }
   function draw() {
-    const c = COURSES[st.m], s = c.slides[st.i]; st.b = st.playing ? 0 : s.b.length;
+    const c = COURSES[st.m], s = c.slides[st.i]; st.b = st.playing ? 0 : s.b.length; if (s.exam && !s.sel) prepExam(s);
     ui.body.innerHTML = `<div class="cypc-layout"><div class="cypc-side"><button type="button" data-pc-back="1">← ${L('All courses', 'Tous les cours')}</button>${c.slides.map((x, k) => `<button type="button" data-pc-i="${k}" class="${k === st.i ? 'on' : ''}">${k + 1}. ${esc(T2(x.t))}</button>`).join('')}</div>
 <div><div class="cypc-prog"><i style="width:${(st.i + 1) / c.slides.length * 100}%"></i></div><div class="cypc-slide"><small style="color:var(--blue);font-weight:700">${c.icon} ${esc(T2(c.name))} · ${st.i + 1}/${c.slides.length}</small><h2>${esc(T2(s.t))}</h2>
 <ul>${s.b.map((p, k) => `<li data-pc-b="${k}">${esc(T2(p))}</li>`).join('')}</ul>
 ${s.table ? `<table class="cypc-table"><tr>${s.table.head.map((h) => `<th>${esc(T2(h))}</th>`).join('')}</tr>${s.table.rows.map((r) => `<tr>${r.map((v) => `<td>${esc(T2(v))}</td>`).join('')}</tr>`).join('')}</table><p class="cypc-src"><span class="cypc-st ${s.table.st}">${s.table.st === 'checked' ? L('cross-checked', 'recoupé') : L('verify', 'à vérifier')}</span>${esc(s.table.src)} — ${L('working summary: check the edition in force.', 'résumé de travail : vérifiez l’édition en vigueur.')}</p>` : ''}
 ${s.tool ? toolHtml(s.tool) : ''}
+${s.open ? `<p><button type="button" data-pc-open="1">🖥 ${esc(T2(s.open.label))}</button></p>` : ''}
+${s.exam ? examHtml(s) : ''}
 ${s.q ? `<div class="cypc-q"><b>✅ ${esc(T2(s.q.q))}</b>${s.q.o.map((o, k) => [o, k]).sort(() => Math.random() - 0.5).map(([o, k]) => `<button type="button" data-pc-o="${k}">${esc(T2(o))}</button>`).join('')}<div data-pc-fb></div></div>` : ''}</div>
 <div class="cypc-bar"><button type="button" data-pc-nav="-1">⏮</button><button type="button" data-pc-play="1">${st.playing ? '⏸' : '▶ ' + L('Present with voice', 'Présenter avec la voix')}</button><button type="button" data-pc-nav="1">⏭</button><button type="button" data-pc-voice="1">${st.voice ? '🔊' : '🔇'}</button><span class="sp"></span><button type="button" data-pc-ai="1">🤖 ${L('Ask the AI about this slide', 'Interroger l’IA sur cette diapositive')}</button></div></div></div>`;
     paint(); mark(st.m, st.i);
-    const t = ui.body.querySelector('[data-pc-t]'); if (t) t.nextSibling && (ui.body.querySelector('[data-pc-o]:not(button)').textContent = toolResult(t.dataset.pcT, Number(t.value)));
+    refreshTool();
   }
+  function examHtml(s) {
+    const r = s.result;
+    return `<div class="cypc-exam">${s.exam.map((q, i) => `<div data-pc-eq="${i}"><b>${i + 1}. ${esc(T2(q.q))}</b>${q.order.map((k) => `<button type="button" data-pc-x="${i}:${k}" class="${r ? (k === q.a ? 'ok' : k === s.sel[i] ? 'ko' : '') : (s.sel[i] === k ? 'sel' : '')}" ${r ? 'disabled' : ''}>${esc(T2(q.o[k]))}</button>`).join('')}${r ? `<small>💡 ${esc(T2(q.why))}</small>` : ''}</div>`).join('')}
+${r ? `<p class="cysurf-score"><b>${r.score}/${s.exam.length} (${r.pct} %)</b> — ${r.pct >= 80 ? L('Passed the course exam. This is a training result, not a certification.', 'Examen du cours réussi. C’est un résultat de formation, pas une certification.') : L('Below 80 %: review the slides and your coach, then try again.', 'Sous 80 % : revoyez les diapositives et votre coach, puis recommencez.')}</p><button type="button" data-pc-retry="1">↻ ${L('New attempt', 'Nouvel essai')}</button>` : `<button type="button" class="cysurf-primary" data-pc-submit="1">✔ ${L('Finish the exam', 'Terminer l’examen')}</button>`}</div>`;
+  }
+  const prepExam = (s) => { s.sel = {}; s.result = null; s.exam.forEach((q) => { q.order = q.o.map((_, k) => k).sort(() => Math.random() - 0.5); }); };
   function paint() { ui.body.querySelectorAll('[data-pc-b]').forEach((li) => { const k = Number(li.dataset.pcB); li.className = st.playing ? (k < st.b ? 'seen' : k === st.b ? 'on' : 'wait') : 'seen'; }); }
   function say() {
     stop(); const c = COURSES[st.m], s = c.slides[st.i], my = st.tok; if (!st.playing) return;
     if (st.b >= s.b.length) { // slide finished: wait on a question, otherwise move on
-      if (s.q && !s.answered) return;
+      if ((s.q && !s.answered) || s.exam) return;
       if (st.i >= c.slides.length - 1) { st.playing = false; return draw(); }
       st.timer = setTimeout(() => { if (my === st.tok) { st.i++; st.b = 0; draw(); paint(); say(); } }, 900); return;
     }
@@ -175,6 +198,17 @@ ${s.q ? `<div class="cypc-q"><b>✅ ${esc(T2(s.q.q))}</b>${s.q.o.map((o, k) => [
     const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
     if (d.pc) return start(d.pc);
     if (d.pcBack) return pick();
+    if (d.pcOpen) { const o = COURSES[st.m].slides[st.i].open; stop(); ui.close(); if (window.CYHOME) window.CYHOME.procedures(o.m, o.sel, o.mode); return; }
+    if (d.pcX) { const [i, k] = d.pcX.split(':').map(Number), s = COURSES[st.m].slides[st.i]; if (s.result) return; s.sel[i] = k; b.parentElement.querySelectorAll('[data-pc-x]').forEach((x) => x.classList.toggle('sel', x === b)); return; }
+    if (d.pcSubmit) {
+      const s = COURSES[st.m].slides[st.i], miss = s.exam.findIndex((_, i) => s.sel[i] == null);
+      if (miss >= 0) { ui.body.querySelector('[data-pc-eq="' + miss + '"]').scrollIntoView({ block: 'center' }); return; }
+      let n = 0; s.exam.forEach((q, i) => { const ok = s.sel[i] === q.a; if (ok) n++; window.dispatchEvent(new CustomEvent('cy-answer', { detail: { src: 'pro-exam', area: st.m, skill: 'codes', ok, q: q.q, given: q.o[s.sel[i]], right: q.o[q.a], why: q.why } })); });
+      s.result = { score: n, pct: Math.round(n / s.exam.length * 100) };
+      window.dispatchEvent(new CustomEvent('cy-learn', { detail: { id: 'pro-exam:' + st.m, score: s.result.pct } }));
+      draw(); return;
+    }
+    if (d.pcRetry) { prepExam(COURSES[st.m].slides[st.i]); draw(); return; }
     if (d.pcI != null) { st.i = Number(d.pcI); st.b = 0; draw(); if (st.playing) say(); return; }
     if (d.pcNav) { const n = COURSES[st.m].slides.length; st.i = Math.max(0, Math.min(n - 1, st.i + Number(d.pcNav))); st.b = 0; draw(); if (st.playing) say(); return; }
     if (d.pcPlay) { st.playing = !st.playing; const i = st.i; if (st.playing) { st.b = 0; COURSES[st.m].slides[i].answered = false; } else stop(); draw(); if (st.playing) { paint(); say(); } return; }
@@ -188,7 +222,7 @@ ${s.q ? `<div class="cypc-q"><b>✅ ${esc(T2(s.q.q))}</b>${s.q.o.map((o, k) => [
       s.answered = true; if (st.playing) { const my = st.tok; st.timer = setTimeout(() => { if (my === st.tok) say(); }, 2500); }
     }
   }
-  function onInput(e) { const t = e.target; if (t.dataset && t.dataset.pcT) { const o = ui.body.querySelector('span[data-pc-o]'); if (o) o.textContent = toolResult(t.dataset.pcT, Number(t.value)); } }
-  window.CYPRO = { open, COURSES };
+  function onInput(e) { if (e.target.dataset && e.target.dataset.pcF) refreshTool(); }
+  window.CYPRO = { open, COURSES, TB };
   if (window.CYLAB) window.CYLAB.register({ icon: '🎓', available: () => true, open: () => open(), title: () => L('Professional courses', 'Cours professionnels'), desc: () => L('Narrated courses with code requirements and acceptance criteria: UT, RT, MT, PT, VT, APVG, APL, APE.', 'Cours commentés avec exigences des codes et critères d’acceptation : UT, RT, MT, PT, VT, APVG, APL, APE.') });
 }());

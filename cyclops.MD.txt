@@ -876,6 +876,12 @@ Sauvegarde des fichiers d'origine : _backup-2026-11-03/
 - Base de connaissances : nouveau type de source « Guide d'étude ASME/API » (résumé pédagogique, édition à vérifier), aussi utilisable par l'assistant principal. Nouveau test serveur (8 tests).
 - Constat : le modèle NVIDIA actuel (llama-3.2-90b-vision) est trop lent sur l'offre gratuite pour les réponses longues (délai dépassé) ; à revoir (autre modèle ou clé Anthropic).
 
+### Cours professionnels UT et RT approfondis
+- Nouveau cyclops-procourse-utrt.js : UT 19 diapositives, RT 16 diapositives, chacun avec un travail résolu et un examen final de 12 questions (80 % ; résultat de formation).
+- UT ajoute : physique (vitesses, longueur d'onde, champ proche), contrôles de l'appareil (ASME V ann. I et II, ISO 22232), choix des angles, plan de balayage, correction de transfert et température, ISO 17640, localisation et dimensionnement, ISO 23279, autres codes (B31.3, AWS D1.1, API 1104, SE-797), PAUT/TOFD, variables de procédure T-421.
+- RT ajoute : choix de la source (EN 1435), film et écrans, techniques pour tubes et nombre de poses, flou géométrique (T-274.2), calcul de pose, repères et lettre B, lecture et artefacts, annexe 4 et groupes alignés, UW-52, B31.3, ISO 10675-1 (chiffres non donnés car non vérifiés), numérique, radioprotection selon le décret algérien 05-117 (art. 18, 19, 26, 27, 28, 84, lus dans une traduction anglaise non officielle).
+- Moteur des cours : calculateurs génériques (bloc, IQI, champ proche, bond, limite de longueur, Ug, pose, écran), liens vers les simulateurs, examen noté enregistré dans le coach et la progression. Badges : 6 tableaux recoupés, 28 à vérifier.
+
 ### Guide vidéo complet et cours professionnels
 - Nouveau cyclops-guide.js : le guide remplace la courte animation de l'accueil. 48 étapes en 9 chapitres (≈ 18 min), sur de VRAIES captures de l'application (EN et FR), avec zoom, curseur, surbrillance du bouton, sous-titres et voix phrase par phrase ; chaque étape dit ce que c'est, à quoi ça sert et comment l'utiliser, avec « Essayer maintenant » et une liste des chapitres.
 - tools/capture-guide.mjs régénère les captures (guide/<langue>/*.jpg et guide/manifest.json) avec un profil temporaire. À relancer quand l'interface change : node tools/capture-guide.mjs. Serveur : seules les images /guide/en|fr/<nom>.jpg sont servies, après connexion.

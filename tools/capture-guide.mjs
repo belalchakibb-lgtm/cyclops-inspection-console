@@ -30,7 +30,7 @@ const SCENES = [
   R('steps', `await g.proc('UT'); const ds=[...document.querySelectorAll('#pbody > details')]; const c=ds[ds.length-1]; c.open=true; ds.filter(d=>!d.classList.contains('cy3')&&!d.className).slice(1,3).forEach(d=>d.open=true); g.see(ds.filter(d=>!d.className)[1]||c);`, `[...document.querySelectorAll('#pbody > details')].filter(d=>!d.className)[1]`, 600),
   R('search', `await g.proc('UT'); scrollTo(0,0);`, '#photo-dropzone', 500),
   R('course', `await g.proc('UT'); CY3.openCourse('UT');`, '.cy-course-layout', 3500),
-  R('pro', `CYPRO.open('UT'); await g.wait(200); document.querySelector('.cypc [data-pc-i="1"]').click();`, '.cypc-table', 600),
+  R('pro', `CYPRO.open('UT'); await g.wait(200); document.querySelector('.cypc [data-pc-i="3"]').click();`, '.cypc-table', 600),
   R('ut-lib', `await g.sim('UT','.cyut','library'); document.querySelector('.cyut [data-type="crack"]').click(); g.see('.cyut-ascan');`, '.cyut-ascan', 900),
   R('ut-ctrl', `await g.sim('UT','.cyut','library'); g.see('.cyut-ctrl');`, '.cyut-ctrl', 800),
   R('ut-ex', `await g.sim('UT','.cyut','exercise'); g.see('.cyut-ex');`, '.cyut-ex', 900),
