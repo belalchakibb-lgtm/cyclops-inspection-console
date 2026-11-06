@@ -876,6 +876,10 @@ Sauvegarde des fichiers d'origine : _backup-2026-11-03/
 - Base de connaissances : nouveau type de source « Guide d'étude ASME/API » (résumé pédagogique, édition à vérifier), aussi utilisable par l'assistant principal. Nouveau test serveur (8 tests).
 - Constat : le modèle NVIDIA actuel (llama-3.2-90b-vision) est trop lent sur l'offre gratuite pour les réponses longues (délai dépassé) ; à revoir (autre modèle ou clé Anthropic).
 
+### Serveur : page de configuration verrouillée en production
+- Constat : une copie propre du dépôt démarre en moins d'une seconde avec des réglages valides, et plantait au démarrage dès que CYCLOPS_USERS ou SESSION_SECRET manquait ou était mal formé, ce qui donnait sur Render un « réveil » sans fin et sans explication.
+- En production, le serveur démarre maintenant verrouillé dans ce cas : toutes les adresses répondent par la page d'explication (503), /api/health répond 200 pour que Render garde cette version en ligne. Application, connexion et IA restent inaccessibles ; la page et le journal ne répètent jamais la valeur du réglage. Hors production, l'arrêt immédiat ne change pas. 15 tests serveur réussis.
+
 ### Application Android (APK)
 - L'application existante (android/, dz.aqcs.cyclops, publiée par le commit c6c2498) ouvre https://cyclopsaqcs.onrender.com. Connexion, comptes et IA restent sur le serveur ; le site n'est pas modifié. Lien fixe : releases/download/apk-latest/CYCLOPS-AQCS.apk, construit gratuitement par GitHub Actions (.github/workflows/android-apk.yml).
 - Ajouts : assets/cyclops-extras.js (impression et PDF, rapports window.open, téléchargements touchés, voix réellement disponibles), bouton Retour qui ferme d'abord la fenêtre ouverte, écran d'attente avec nouvel essai automatique si le serveur dort, voix arrêtée en arrière-plan.

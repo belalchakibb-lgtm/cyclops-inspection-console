@@ -193,3 +193,79 @@ test('sign-in attempts are rate limited separately', async () => {
   for (let i = 0; i < 12; i++) last = await login('tester', 'wrong-password-here');
   assert.equal(last.status, 429);
 });
+
+// Starts a production server with the given account settings on its own port, runs check, always stops it.
+async function withProductionServer(port, env, check) {
+  const child = spawn(process.execPath, ['server.mjs'], { cwd: root, env: { PATH: process.env.PATH, PORT: String(port), HOST: '127.0.0.1', AUDIT_LOG: 'off', NODE_ENV: 'production', ...env } });
+  let out = '';
+  child.stdout.on('data', (d) => { out += d; });
+  child.stderr.on('data', (d) => { out += d; });
+  const exited = new Promise((resolve) => child.on('exit', resolve));
+  try {
+    for (let i = 0; !out.includes('running at'); i++) {
+      if (i > 100 || child.exitCode !== null) throw new Error(`server did not start: ${out}`);
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    await check(`http://127.0.0.1:${port}`, () => out);
+  } finally {
+    child.kill();
+    await exited;
+  }
+}
+
+test('a wrong production setting locks everything and explains it, without repeating the value', async () => {
+  const secret = 'x'.repeat(40);
+  const cases = [
+    [{}, 'CYCLOPS_USERS is empty'],
+    [{ CYCLOPS_USERS: 'admin:a-long-test-password:admin' }, 'SESSION_SECRET is empty'],
+    [{ SESSION_SECRET: secret }, 'CYCLOPS_USERS is empty'],
+    [{ CYCLOPS_USERS: 'admin:a-long-test-password:admin', SESSION_SECRET: 'short' }, 'shorter than 32'],
+    [{ CYCLOPS_USERS: 'admin:tooshort:admin', SESSION_SECRET: secret }, 'shorter than 12'],
+    [{ CYCLOPS_USERS: 'admin:secret-part:leaked-part:admin', SESSION_SECRET: secret }, 'wrong third part']
+  ];
+  let port = 47400;
+  for (const [env, expected] of cases) {
+    await withProductionServer(++port, env, async (url, log) => {
+      const health = await fetch(`${url}/api/health`);
+      assert.equal(health.status, 200);
+      assert.equal((await health.json()).setupNeeded, true);
+      const page = await fetch(`${url}/`, { redirect: 'manual' });
+      assert.equal(page.status, 503);
+      const html = await page.text();
+      assert.ok(html.includes(expected), `page should say: ${expected}`);
+      for (const value of ['secret-part', 'leaked-part', 'tooshort', 'a-long-test-password']) {
+        assert.ok(!html.includes(value), 'page must not repeat a setting value');
+        assert.ok(!log().includes(value), 'log must not repeat a setting value');
+      }
+      // nothing of the app is reachable, signed in or not
+      for (const path of ['/login', '/cyclops-film.js', '/sw.js', '/manifest.webmanifest', '/guide/en/x.jpg', '/server.mjs']) {
+        const r = await fetch(url + path, { redirect: 'manual' });
+        assert.equal(r.status, 503, path);
+        assert.ok((await r.text()).includes('locked'), path);
+      }
+      const post = (path) => fetch(url + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: 'admin', password: 'a-long-test-password', question: 'x' }) });
+      assert.equal((await post('/api/login')).status, 503);
+      assert.equal((await post('/api/ask')).status, 503);
+    });
+  }
+});
+
+test('correct production settings still give the normal sign-in, with no setup page', async () => {
+  await withProductionServer(47410, { CYCLOPS_USERS: 'admin:a-long-test-password:admin', SESSION_SECRET: 'x'.repeat(40) }, async (url) => {
+    const health = await (await fetch(`${url}/api/health`)).json();
+    assert.equal(health.ok, true);
+    assert.equal(health.authEnabled, true);
+    const home = await fetch(`${url}/`, { redirect: 'manual' });
+    assert.equal(home.status, 302);
+    assert.equal(home.headers.get('location'), '/login');
+    assert.equal((await fetch(`${url}/cyclops-film.js`, { redirect: 'manual' })).status, 302);
+    assert.equal((await fetch(`${url}/login`)).status, 200);
+  });
+});
+
+test('outside production a wrong setting still stops the server at once', async () => {
+  const child = spawn(process.execPath, ['server.mjs'], { cwd: root, env: { PATH: process.env.PATH, PORT: '47411', HOST: '127.0.0.1', AUDIT_LOG: 'off', CYCLOPS_USERS: 'admin:tooshort:admin', SESSION_SECRET: 'x'.repeat(40) } });
+  child.stderr.resume(); child.stdout.resume();
+  const code = await new Promise((resolve) => child.on('exit', resolve));
+  assert.notEqual(code, 0);
+});

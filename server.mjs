@@ -87,16 +87,53 @@ function parseUsers() {
   }
   return users;
 }
-const users = parseUsers();
-const sessionSecret = process.env.SESSION_SECRET || '';
-const authConfigured = users.size > 0 && Boolean(sessionSecret);
-if ((users.size > 0) !== Boolean(sessionSecret)) throw new Error('Set the user account(s) and SESSION_SECRET together.');
-if (process.env.NODE_ENV === 'production' && !authConfigured) throw new Error('Production requires user accounts and SESSION_SECRET.');
-for (const [name, { password }] of users) {
-  if (name.length < 3 || !/^[\w.@-]+$/.test(name)) throw new Error(`Username "${name}" must be at least 3 characters (letters, digits, . _ @ -).`);
-  if (password.length < 12) throw new Error(`The password for ${name} must be at least 12 characters.`);
+let users = new Map();
+let sessionSecret = '';
+let authConfigured = false;
+// In production a wrong account setting must not leave an endless "waking up" with no explanation. The server stays
+// up but fully locked: every path answers with the setup page and nothing is served until the setting is corrected.
+let setupProblem = null;
+try {
+  users = parseUsers();
+  sessionSecret = process.env.SESSION_SECRET || '';
+  authConfigured = users.size > 0 && Boolean(sessionSecret);
+  if ((users.size > 0) !== Boolean(sessionSecret)) throw new Error('Set the user account(s) and SESSION_SECRET together.');
+  if (process.env.NODE_ENV === 'production' && !authConfigured) throw new Error('Production requires user accounts and SESSION_SECRET.');
+  for (const [name, { password }] of users) {
+    if (name.length < 3 || !/^[\w.@-]+$/.test(name)) throw new Error(`Username "${name}" must be at least 3 characters (letters, digits, . _ @ -).`);
+    if (password.length < 12) throw new Error(`The password for ${name} must be at least 12 characters.`);
+  }
+  if (authConfigured && sessionSecret.length < 32) throw new Error('SESSION_SECRET must be at least 32 characters.');
+} catch (error) {
+  if (process.env.NODE_ENV !== 'production') throw error;
+  setupProblem = describeSetupProblem(error);
+  users = new Map();
+  sessionSecret = '';
+  authConfigured = false;
+  console.error(`CYCLOPS is locked. Setup problem: ${setupProblem[0]}`);
 }
-if (authConfigured && sessionSecret.length < 32) throw new Error('SESSION_SECRET must be at least 32 characters.');
+
+// Public text: never repeats the setting's value, because a badly formatted entry can contain a password.
+function describeSetupProblem(error) {
+  const m = String(error && error.message);
+  const hasUsers = Boolean(String(process.env.CYCLOPS_USERS || '').trim() || process.env.CYCLOPS_USERNAME);
+  if (!hasUsers) return ['CYCLOPS_USERS is empty or missing.', 'CYCLOPS_USERS est vide ou absent.'];
+  if (!process.env.SESSION_SECRET) return ['SESSION_SECRET is empty or missing.', 'SESSION_SECRET est vide ou absent.'];
+  if (m.startsWith('SESSION_SECRET')) return ['SESSION_SECRET is shorter than 32 characters.', 'SESSION_SECRET fait moins de 32 caractères.'];
+  if (m.includes('at least 12')) return ['A password in CYCLOPS_USERS is shorter than 12 characters.', 'Un mot de passe de CYCLOPS_USERS fait moins de 12 caractères.'];
+  if (m.startsWith('Username')) return ['A username in CYCLOPS_USERS is invalid: at least 3 characters, only letters, digits and . _ @ -', 'Un nom dans CYCLOPS_USERS est invalide : au moins 3 caractères, seulement lettres, chiffres et . _ @ -'];
+  if (m.startsWith('Unknown role')) return ['An entry in CYCLOPS_USERS has a wrong third part. It must be inspector, supervisor or admin. Also remove any quotes, and do not use : or , inside a password.', 'Une entrée de CYCLOPS_USERS a une troisième partie incorrecte. Elle doit être inspector, supervisor ou admin. Retirez aussi les guillemets, et n’utilisez ni : ni , dans un mot de passe.'];
+  return ['CYCLOPS_USERS is not in the right format.', 'CYCLOPS_USERS n’a pas le bon format.'];
+}
+
+function setupPage() {
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CYCLOPS setup</title></head>
+<body style="margin:0;min-height:100vh;display:grid;place-content:center;padding:24px;background:#081126;color:#e8f0ff;font-family:system-ui,sans-serif;line-height:1.5"><main style="max-width:620px">
+<h1 style="margin-top:0">🔒 CYCLOPS is locked: one setting needs correcting</h1><p style="font-size:18px;color:#ffd27a"><b>${setupProblem[0]}</b></p><p style="font-size:18px;color:#ffd27a" lang="fr"><b>${setupProblem[1]}</b></p>
+<p>In Render: open the service, then <b>Environment</b>, correct the value, and save. The server restarts by itself.<br>Dans Render : ouvrez le service, puis <b>Environment</b>, corrigez la valeur et enregistrez. Le serveur redémarre seul.</p>
+<p>CYCLOPS_USERS: <code>name:password:role</code>. Separate accounts with a comma. Password of 12 characters or more, role inspector, supervisor or admin, no quotes.<br>SESSION_SECRET: 32 characters or more.</p>
+<p style="color:#9fb0d6">Nothing can be used until this is corrected. / Rien n’est utilisable avant cette correction.</p></main></body></html>`;
+}
 
 // ---------- Knowledge base ----------
 let kb = await buildKnowledgeBase(root);
@@ -428,6 +465,13 @@ async function serveFile(request, response, file) {
 export async function serve(request, response) {
   const url = new URL(request.url, 'http://localhost');
   const path = url.pathname;
+  if (setupProblem) {
+    // Locked: 200 on health only, so Render keeps this version live and the explanation can be read.
+    if (path === '/api/health') return json(response, 200, { ok: false, setupNeeded: true });
+    if (path.startsWith('/api/')) return json(response, 503, { error: 'CYCLOPS is locked: a server setting needs correcting.' });
+    response.writeHead(503, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', ...securityHeaders });
+    return response.end(request.method === 'HEAD' ? undefined : setupPage());
+  }
   if (path === '/api/login') return login(request, response);
   if (path === '/api/logout') return logout(request, response);
   if (path === '/api/health') return json(response, 200, { ok: true, provider: providerLabel, configured: Boolean(apiKey()), authEnabled: authConfigured });
@@ -473,7 +517,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
     console.log(envFileStatus);
     console.log(apiKey() ? `AI connected through ${providerLabel}: ${aiChain.length} model(s), first ${model}; if one fails the next is used automatically.` : 'AI key: none.');
     console.log(`Knowledge base ${kb.version}: ${kb.N} passages, ${kb.documentCount} AQCS document(s).`);
-    console.log(authConfigured ? `Sign-in enabled for ${users.size} account(s).` : 'Sign-in is OFF (local mode). Anyone who can reach this port can use CYCLOPS. Set HOST=127.0.0.1 to keep it on this computer only.');
+    console.log(setupProblem ? 'LOCKED: every page shows the setup message until the setting is corrected.' : authConfigured ? `Sign-in enabled for ${users.size} account(s).` : 'Sign-in is OFF (local mode). Anyone who can reach this port can use CYCLOPS. Set HOST=127.0.0.1 to keep it on this computer only.');
     if (!apiKey()) console.log('AI is not connected. Set NVIDIA_API_KEY or ANTHROPIC_API_KEY and restart. The assistant will use offline answers.');
   });
 }
