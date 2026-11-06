@@ -876,6 +876,12 @@ Sauvegarde des fichiers d'origine : _backup-2026-11-03/
 - Base de connaissances : nouveau type de source « Guide d'étude ASME/API » (résumé pédagogique, édition à vérifier), aussi utilisable par l'assistant principal. Nouveau test serveur (8 tests).
 - Constat : le modèle NVIDIA actuel (llama-3.2-90b-vision) est trop lent sur l'offre gratuite pour les réponses longues (délai dépassé) ; à revoir (autre modèle ou clé Anthropic).
 
+### Cours professionnels APVG, APL et APE approfondis
+- Nouveau cyclops-procourse-equip.js : APVG 12 diapositives, APL 10, APE 14, chacun avec un travail résolu et un examen de 12 questions, plus 8 calculateurs (épaisseur/PMS, durée de vie, pression d'épreuve, élingues, charges d'essai, RA, Zs, chute de tension) et liens vers les jumeaux numériques.
+- Textes algériens lus : décret 90-245 (copie web avec erreurs d'OCR : épreuve ≥ 3/2 pression de calcul, réépreuve ≤ 10 ans fixes / 5 ans mobiles, visites ≤ 3 ans, registre, seuils P>4 bar et PV>80), arrêté du 12/11/2020 (JO 76 : supervision par experts des mines ou organismes agréés/accrédités ALGERAC ; CND et qualifications), décret 91-05 (copie web : art. 49, 53, 62, 64, 65). À vérifier au Journal officiel.
+- Non trouvé : périodicités algériennes pour levage et électricité, et contenu du décret 90-246 (vapeur) : le cours le dit et renvoie à AQCS/inspection du travail.
+- Corrections : crochet ASME B30.10 (toute torsion visible, 10° est le chiffre OSHA) ; le jumeau, les scénarios, missions et l'atelier signalent que le 1,3 × est un exemple ASME et que le décret algérien exige au moins 1,5 ×. Badges : 11 tableaux recoupés, 35 à vérifier.
+
 ### Cours professionnels UT et RT approfondis
 - Nouveau cyclops-procourse-utrt.js : UT 19 diapositives, RT 16 diapositives, chacun avec un travail résolu et un examen final de 12 questions (80 % ; résultat de formation).
 - UT ajoute : physique (vitesses, longueur d'onde, champ proche), contrôles de l'appareil (ASME V ann. I et II, ISO 22232), choix des angles, plan de balayage, correction de transfert et température, ISO 17640, localisation et dimensionnement, ISO 23279, autres codes (B31.3, AWS D1.1, API 1104, SE-797), PAUT/TOFD, variables de procédure T-421.
