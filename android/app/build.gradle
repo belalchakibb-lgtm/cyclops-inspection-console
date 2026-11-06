@@ -1,0 +1,48 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Each GitHub build gets a higher number, so a new APK installs over the old one.
+def buildNumber = (System.getenv('GITHUB_RUN_NUMBER') ?: '1') as Integer
+
+android {
+    namespace 'dz.aqcs.cyclops'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'dz.aqcs.cyclops'
+        minSdk 24
+        targetSdk 34
+        versionCode buildNumber
+        versionName "1.3.${buildNumber}"
+    }
+
+    signingConfigs {
+        cyclops {
+            storeFile file('cyclops-release.keystore')
+            storePassword 'cyclops-aqcs'
+            keyAlias 'cyclops'
+            keyPassword 'cyclops-aqcs'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.cyclops
+        }
+        debug {
+            signingConfig signingConfigs.cyclops
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
+}

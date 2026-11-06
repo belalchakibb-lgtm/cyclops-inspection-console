@@ -1,0 +1,64 @@
+# Builds the CYCLOPS Android app (APK) on GitHub and publishes it on the "apk-latest" release.
+# Runs when the android/ folder changes, or by hand: Actions > Android APK > Run workflow.
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'icons/icon-512.png'
+      - '.github/workflows/android-apk.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.3'
+
+      - name: Use the CYCLOPS icon
+        run: |
+          for d in xxxhdpi xxhdpi; do
+            mkdir -p android/app/src/main/res/mipmap-$d
+            cp icons/icon-512.png android/app/src/main/res/mipmap-$d/ic_launcher.png
+          done
+
+      - name: Create the signing key
+        working-directory: android/app
+        run: |
+          [ -f cyclops-release.keystore ] || keytool -genkeypair -keystore cyclops-release.keystore -storepass cyclops-aqcs -keypass cyclops-aqcs -alias cyclops -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=CYCLOPS AQCS, O=AQCS, C=DZ"
+
+      - name: Build APK
+        working-directory: android
+        run: gradle --no-daemon assembleRelease
+
+      - name: Name the APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk CYCLOPS-AQCS.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CYCLOPS-AQCS-apk
+          path: CYCLOPS-AQCS.apk
+
+      - name: Publish the download link
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete apk-latest --yes --cleanup-tag || true
+          gh release create apk-latest CYCLOPS-AQCS.apk \
+            --target "$GITHUB_SHA" \
+            --title "CYCLOPS Android app (build ${GITHUB_RUN_NUMBER})" \
+            --notes "Download CYCLOPS-AQCS.apk on the phone and open it to install. Needs internet and the CYCLOPS server at https://cyclopsaqcs.onrender.com"
