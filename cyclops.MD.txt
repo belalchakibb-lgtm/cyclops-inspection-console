@@ -876,6 +876,12 @@ Sauvegarde des fichiers d'origine : _backup-2026-11-03/
 - Base de connaissances : nouveau type de source « Guide d'étude ASME/API » (résumé pédagogique, édition à vérifier), aussi utilisable par l'assistant principal. Nouveau test serveur (8 tests).
 - Constat : le modèle NVIDIA actuel (llama-3.2-90b-vision) est trop lent sur l'offre gratuite pour les réponses longues (délai dépassé) ; à revoir (autre modèle ou clé Anthropic).
 
+### Cours professionnels MT, PT et VT approfondis
+- Nouveau cyclops-procourse-surf.js : MT 12 diapositives, PT 12, VT et soudage 11, chacun avec un travail résolu et un examen de 12 questions, plus 5 calculateurs (courant des pointes, temps de pénétration selon la température, caniveau, surépaisseur ISO 5817, gorge d'une soudure d'angle) et liens vers les simulateurs MT et PT. Les diapositives existantes sont conservées.
+- Recoupé sur des copies publiques ou secondaires (pas le code payant) : pointes ASME 100–125 A/in au-dessus de 19 mm et écartement maximal 203 mm ; concentration des bains ; T-672 (10–52 °C, doublement de 5 à 10 °C, 2 h au maximum).
+- Restent « à vérifier » (connaissance de formation, non recoupée) : ISO 3452-1, 3059, 17638, 23278, 5817, 6520 ; ASME B31.3 Table 341.3.2 ; 90–110 A/in sous 19 mm selon l'édition ; fenêtre 10–60 min du PT. La formule ISO 5817 n'a pu être rapprochée que de l'ancienne EN 25817.
+- Testé dans le navigateur : 70 diapositives EN/FR, calculateurs, examens (12/12 réussi, 4/12 échoué), lien simulateur. 12 tests serveur réussis.
+
 ### Cours professionnels APVG, APL et APE approfondis
 - Nouveau cyclops-procourse-equip.js : APVG 12 diapositives, APL 10, APE 14, chacun avec un travail résolu et un examen de 12 questions, plus 8 calculateurs (épaisseur/PMS, durée de vie, pression d'épreuve, élingues, charges d'essai, RA, Zs, chute de tension) et liens vers les jumeaux numériques.
 - Textes algériens lus : décret 90-245 (copie web avec erreurs d'OCR : épreuve ≥ 3/2 pression de calcul, réépreuve ≤ 10 ans fixes / 5 ans mobiles, visites ≤ 3 ans, registre, seuils P>4 bar et PV>80), arrêté du 12/11/2020 (JO 76 : supervision par experts des mines ou organismes agréés/accrédités ALGERAC ; CND et qualifications), décret 91-05 (copie web : art. 49, 53, 62, 64, 65). À vérifier au Journal officiel.
