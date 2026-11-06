@@ -876,6 +876,12 @@ Sauvegarde des fichiers d'origine : _backup-2026-11-03/
 - Base de connaissances : nouveau type de source « Guide d'étude ASME/API » (résumé pédagogique, édition à vérifier), aussi utilisable par l'assistant principal. Nouveau test serveur (8 tests).
 - Constat : le modèle NVIDIA actuel (llama-3.2-90b-vision) est trop lent sur l'offre gratuite pour les réponses longues (délai dépassé) ; à revoir (autre modèle ou clé Anthropic).
 
+### Application Android (APK)
+- L'application existante (android/, dz.aqcs.cyclops, publiée par le commit c6c2498) ouvre https://cyclopsaqcs.onrender.com. Connexion, comptes et IA restent sur le serveur ; le site n'est pas modifié. Lien fixe : releases/download/apk-latest/CYCLOPS-AQCS.apk, construit gratuitement par GitHub Actions (.github/workflows/android-apk.yml).
+- Ajouts : assets/cyclops-extras.js (impression et PDF, rapports window.open, téléchargements touchés, voix réellement disponibles), bouton Retour qui ferme d'abord la fenêtre ouverte, écran d'attente avec nouvel essai automatique si le serveur dort, voix arrêtée en arrière-plan.
+- Correction : la clé de signature était recréée à chaque construction, ce qui empêchait toute mise à jour. Elle est maintenant conservée dans le cache privé de GitHub Actions. Les téléphones déjà équipés doivent désinstaller une seule fois.
+- Limites : le serveur doit être en ligne pour la première ouverture ; dictée vocale du navigateur absente (utiliser le micro du clavier) ; signature pour installation directe, pas pour le Play Store (mot de passe de la clé visible dans le dépôt public). Testé dans le navigateur avec un téléphone simulé.
+
 ### Vidéos 3D des cours professionnels
 - Nouveaux cyclops-film.js (lecteur) et cyclops-film-scenes.js (scènes) : chaque cours se joue comme une vidéo 3D narrée, 98 scènes Three.js en temps réel pour les 8 cours (UT, RT, MT, PT, VT, APVG, APL, APE). Bouton « Voir la vidéo 3D » sur chaque cours et « Vidéo 3D » sur chaque diapositive. Three.js chargé à la demande depuis vendor/.
 - La scène avance avec la voix (un temps par point narré), avec sous-titres, faits à l'écran, tableau du code avec son badge et sa source, frise cliquable, pause, vitesse, question de contrôle en pause, écran de fin vers l'examen. Les textes et tableaux viennent des diapositives ; le mode diapositives, les calculateurs et les examens sont conservés.

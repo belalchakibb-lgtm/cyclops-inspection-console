@@ -11,3 +11,9 @@ Untitled-1 U.py
 Untitled-1.txt
 .claude/
 package/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.keystore
+*.jks

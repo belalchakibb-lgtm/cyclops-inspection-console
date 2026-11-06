@@ -36,6 +36,13 @@ jobs:
             cp icons/icon-512.png android/app/src/main/res/mipmap-$d/ic_launcher.png
           done
 
+      # Android only installs an update signed with the same key, so the key is kept between builds.
+      # It stays in GitHub's private build cache and is never committed, because this repository is public.
+      - uses: actions/cache@v4
+        with:
+          path: android/app/cyclops-release.keystore
+          key: cyclops-signing-key-v1
+
       - name: Create the signing key
         working-directory: android/app
         run: |

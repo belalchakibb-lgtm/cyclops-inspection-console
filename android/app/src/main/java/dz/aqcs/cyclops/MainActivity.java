@@ -8,6 +8,8 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
+import android.print.PrintAttributes;
+import android.print.PrintManager;
 import android.provider.MediaStore;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
@@ -18,6 +20,7 @@ import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -25,9 +28,13 @@ import android.widget.Toast;
 
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -47,6 +54,11 @@ public class MainActivity extends Activity {
     ValueCallback<Uri[]> fileCallback;
     TextToSpeech tts;
     volatile boolean ttsReady = false;
+    volatile String voiceLangs = "";   // languages the phone can really speak, e.g. "en-US,fr-FR"
+    WebView printView;                 // kept alive until the print job has read it
+    String extrasJs = "";              // assets/cyclops-extras.js: print, reports, tapped downloads
+    boolean onErrorPage = false;
+    boolean clearAfterRetry = false;
 
     /** Injected into every page: speechSynthesis on top of Android TTS, and blob downloads. */
     static final String BRIDGE_JS =
@@ -89,6 +101,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        extrasJs = readAsset("cyclops-extras.js");
         int navy = Color.parseColor("#081126");
         getWindow().setStatusBarColor(navy);
         getWindow().setNavigationBarColor(navy);
@@ -103,6 +116,8 @@ public class MainActivity extends Activity {
         s.setDatabaseEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setAllowFileAccess(false);
+        s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        s.setTextZoom(100);
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
         s.setUserAgentString(s.getUserAgentString() + " CYCLOPS-Android");
@@ -125,18 +140,29 @@ public class MainActivity extends Activity {
 
             @Override
             public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
-                view.evaluateJavascript(BRIDGE_JS, null);
+                if (url != null && url.startsWith(HOME)) {
+                    if (onErrorPage) { onErrorPage = false; clearAfterRetry = true; }
+                    inject(view);
+                }
             }
 
             @Override
             public void onPageFinished(WebView view, String url) {
-                view.evaluateJavascript(BRIDGE_JS, null);
+                if (url != null && url.startsWith(HOME)) {
+                    inject(view);
+                    if (clearAfterRetry && !onErrorPage) { view.clearHistory(); clearAfterRetry = false; } // Back must not return to the error screen
+                }
                 CookieManager.getInstance().flush();
             }
 
             @Override
             public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) showOffline(view);
+            }
+
+            @Override
+            public void onReceivedHttpError(WebView view, WebResourceRequest request, WebResourceResponse response) {
+                if (request.isForMainFrame() && response.getStatusCode() >= 500) showOffline(view);
             }
         });
 
@@ -168,7 +194,14 @@ public class MainActivity extends Activity {
     }
 
     void setupSpeech() {
-        tts = new TextToSpeech(this, status -> ttsReady = status == TextToSpeech.SUCCESS);
+        tts = new TextToSpeech(this, status -> {
+            ttsReady = status == TextToSpeech.SUCCESS;
+            if (!ttsReady) return;
+            StringBuilder langs = new StringBuilder();
+            if (tts.isLanguageAvailable(Locale.US) >= TextToSpeech.LANG_AVAILABLE) langs.append("en-US");
+            if (tts.isLanguageAvailable(Locale.FRANCE) >= TextToSpeech.LANG_AVAILABLE) langs.append(langs.length() > 0 ? ",fr-FR" : "fr-FR");
+            voiceLangs = langs.toString();
+        });
         tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
             @Override public void onStart(String id) { if (part(id) == 0) callJs(base(id), "start"); }
             @Override public void onDone(String id) { if (part(id) == count(id) - 1) callJs(base(id), "end"); }
@@ -226,6 +259,33 @@ public class MainActivity extends Activity {
         public void stop() { if (tts != null) tts.stop(); }
 
         @JavascriptInterface
+        public String voiceLangs() { return voiceLangs; }
+
+        @JavascriptInterface
+        public void printPage() { runOnUiThread(() -> print(web)); }
+
+        @JavascriptInterface
+        public void printHtml(String html) {
+            runOnUiThread(() -> {
+                printView = new WebView(MainActivity.this);
+                printView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public void onPageFinished(WebView view, String url) { print(view); }
+                });
+                printView.loadDataWithBaseURL(HOME, html, "text/html", "utf-8", null);
+            });
+        }
+
+        @JavascriptInterface
+        public void openLink(String url) {
+            Uri uri = Uri.parse(url);
+            runOnUiThread(() -> {
+                if (HOST.equalsIgnoreCase(uri.getHost())) web.loadUrl(url);
+                else openOutside(uri);
+            });
+        }
+
+        @JavascriptInterface
         public void saveFile(String name, String mime, String base64) {
             String safe = (name == null || name.isEmpty() ? "cyclops-file" : name).replaceAll("[\\\\/:*?\"<>|]+", "_");
             try {
@@ -257,13 +317,37 @@ public class MainActivity extends Activity {
         try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); } catch (Exception ignored) { }
     }
 
+    void inject(WebView view) {
+        view.evaluateJavascript(BRIDGE_JS, null);
+        view.evaluateJavascript(extrasJs, null);
+    }
+
+    void print(WebView view) {
+        PrintManager pm = (PrintManager) getSystemService(PRINT_SERVICE);
+        if (pm != null) pm.print("CYCLOPS", view.createPrintDocumentAdapter("CYCLOPS"), new PrintAttributes.Builder().build());
+    }
+
+    String readAsset(String name) {
+        try (InputStream in = getAssets().open(name); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) > 0) out.write(buf, 0, n);
+            return new String(out.toByteArray(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            return "";
+        }
+    }
+
     void showOffline(WebView view) {
+        onErrorPage = true;
         String html = "<html><head><meta name=viewport content='width=device-width,initial-scale=1'></head>" +
             "<body style='background:#081126;color:#e6ecff;font-family:sans-serif;text-align:center;padding:60px 24px'>" +
-            "<h2>CYCLOPS</h2><p>Connexion impossible au serveur.<br>Cannot reach the server.</p>" +
-            "<p style='opacity:.7'>Vérifiez Internet, puis réessayez. / Check the internet connection, then retry.</p>" +
+            "<h2>CYCLOPS</h2><p>Connexion au serveur en cours…<br>Connecting to the server…</p>" +
+            "<p style='opacity:.7'>Le serveur gratuit peut mettre une minute à se réveiller. Vérifiez Internet. Nouvel essai automatique.<br>" +
+            "The free server can take a minute to wake up. Check the internet connection. Retrying automatically.</p>" +
             "<button onclick=\"location.href='" + HOME + "'\" style='margin-top:20px;padding:14px 28px;font-size:16px;" +
-            "border-radius:10px;border:0;background:#3b82f6;color:#fff'>Réessayer / Retry</button></body></html>";
+            "border-radius:10px;border:0;background:#3b82f6;color:#fff'>Réessayer / Retry</button>" +
+            "<script>setTimeout(function(){location.href='" + HOME + "'},20000)</script></body></html>";
         view.loadDataWithBaseURL(null, html, "text/html", "utf-8", null);
     }
 
@@ -287,8 +371,13 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (web != null && web.canGoBack()) web.goBack();
-        else super.onBackPressed();
+        if (web == null) { finish(); return; }
+        // Back closes an open CYCLOPS window first, then goes back, then leaves the app.
+        web.evaluateJavascript("(function(){var l=document.querySelectorAll('dialog[open]');if(l.length){l[l.length-1].close();return 1}return 0})()", result -> {
+            if ("1".equals(result)) return;
+            if (web.canGoBack() && !onErrorPage) web.goBack();
+            else finish();
+        });
     }
 
     @Override
@@ -301,6 +390,7 @@ public class MainActivity extends Activity {
     protected void onPause() {
         super.onPause();
         CookieManager.getInstance().flush();
+        if (tts != null) tts.stop();
         if (web != null) web.onPause();
     }
 
