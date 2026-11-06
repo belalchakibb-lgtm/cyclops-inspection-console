@@ -127,7 +127,7 @@
 
   /* ---------- player ---------- */
   const css = `
-.cypc-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; } .cypc-pick button { text-align: left; padding: 14px; display: grid; gap: 4px; border-radius: 12px; } .cypc-pick small { color: var(--muted); } .cypc-pick button.done { border-color: #42c991; }
+.cypc-pick { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; } .cypc-pick button { text-align: left; padding: 14px; display: grid; gap: 4px; border-radius: 12px; } .cypc-pick small { color: var(--muted); } .cypc-pick button.done { border-color: #42c991; } .cypc-card { display: grid; gap: 5px; grid-template-rows: 1fr auto; } .cypc-pick button.cypc-film, .cypc-bar button.cypc-film { background: linear-gradient(90deg, #2b7fd8, #7a4dff); border-color: transparent; color: #fff; font-weight: 700; text-align: center; padding: 8px 12px; }
 .cypc-layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 14px; min-height: 100%; }
 .cypc-side button { display: block; width: 100%; text-align: left; font-size: 12.5px; padding: 6px 8px; margin: 2px 0; border-color: transparent; background: transparent; } .cypc-side button.on { background: var(--accent); color: #fff; }
 .cypc-slide { border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; background: linear-gradient(145deg, rgba(18,29,59,.95), rgba(13,20,47,.92)); animation: cypc-in .3s ease-out; } @keyframes cypc-in { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
@@ -157,7 +157,7 @@
   function pick() {
     stop(); st.m = null; const d = done();
     ui.body.innerHTML = `<p>${L('Narrated presentations for working inspectors. Each table shows its source and a badge:', 'Présentations commentées pour inspecteurs en activité. Chaque tableau indique sa source et un badge :')} <span class="cypc-st checked">${L('cross-checked', 'recoupé')}</span>${L('with public sources,', 'avec des sources publiques,')} <span class="cypc-st verify">${L('verify', 'à vérifier')}</span>${L('from training knowledge. None replaces the code text.', 'issu de connaissances de formation. Rien ne remplace le texte du code.')}</p>
-<div class="cypc-pick">${ORDER.map((m) => { const c = COURSES[m], n = c.slides.length, s = Math.min(d[m] || 0, n); return `<button type="button" data-pc="${m}" class="${s >= n ? 'done' : ''}"><b>${c.icon} ${esc(T2(c.name))}</b><small>${esc(c.codes)}</small><small>${n} ${L('slides', 'diapositives')} · ${s}/${n} ${L('seen', 'vues')}</small></button>`; }).join('')}</div>
+<div class="cypc-pick">${ORDER.map((m) => { const c = COURSES[m], n = c.slides.length, s = Math.min(d[m] || 0, n); return `<div class="cypc-card"><button type="button" data-pc="${m}" class="${s >= n ? 'done' : ''}"><b>${c.icon} ${esc(T2(c.name))}</b><small>${esc(c.codes)}</small><small>${n} ${L('slides', 'diapositives')} · ${s}/${n} ${L('seen', 'vues')}</small></button>${window.CYFILM ? `<button type="button" class="cypc-film" data-pc-film-m="${m}">🎬 ${L('Watch the 3D video', 'Voir la vidéo 3D')}</button>` : ''}</div>`; }).join('')}</div>
 <p class="cylab-note">${L('Training content, not a certification. The code edition in force, the contract, the approved procedure and the qualified inspector decide. National regulation can be stricter. Add your AQCS procedures and licensed codes to the documents folder so the AI assistant can cite them.', 'Contenu de formation, pas une certification. L’édition du code en vigueur, le contrat, la procédure approuvée et l’inspecteur qualifié décident. La réglementation nationale peut être plus stricte. Ajoutez vos procédures AQCS et codes sous licence dans le dossier documents pour que l’assistant IA puisse les citer.')}</p>`;
   }
   function start(m) { st.m = m; st.i = 0; st.playing = false; draw(); window.CY_LESSON = L('Professional course: ', 'Cours professionnel : ') + T2(COURSES[m].name); window.dispatchEvent(new CustomEvent('cy-learn', { detail: { id: 'pro:' + m } })); }
@@ -171,7 +171,7 @@ ${s.tool ? toolHtml(s.tool) : ''}
 ${s.open ? `<p><button type="button" data-pc-open="1">🖥 ${esc(T2(s.open.label))}</button></p>` : ''}
 ${s.exam ? examHtml(s) : ''}
 ${s.q ? `<div class="cypc-q"><b>✅ ${esc(T2(s.q.q))}</b>${s.q.o.map((o, k) => [o, k]).sort(() => Math.random() - 0.5).map(([o, k]) => `<button type="button" data-pc-o="${k}">${esc(T2(o))}</button>`).join('')}<div data-pc-fb></div></div>` : ''}</div>
-<div class="cypc-bar"><button type="button" data-pc-nav="-1">⏮</button><button type="button" data-pc-play="1">${st.playing ? '⏸' : '▶ ' + L('Present with voice', 'Présenter avec la voix')}</button><button type="button" data-pc-nav="1">⏭</button><button type="button" data-pc-voice="1">${st.voice ? '🔊' : '🔇'}</button><span class="sp"></span><button type="button" data-pc-ai="1">🤖 ${L('Ask the AI about this slide', 'Interroger l’IA sur cette diapositive')}</button></div></div></div>`;
+<div class="cypc-bar">${window.CYFILM ? `<button type="button" class="cypc-film" data-pc-film="1">🎬 ${L('3D video', 'Vidéo 3D')}</button>` : ''}<button type="button" data-pc-nav="-1">⏮</button><button type="button" data-pc-play="1">${st.playing ? '⏸' : '▶ ' + L('Present with voice', 'Présenter avec la voix')}</button><button type="button" data-pc-nav="1">⏭</button><button type="button" data-pc-voice="1">${st.voice ? '🔊' : '🔇'}</button><span class="sp"></span><button type="button" data-pc-ai="1">🤖 ${L('Ask the AI about this slide', 'Interroger l’IA sur cette diapositive')}</button></div></div></div>`;
     paint(); mark(st.m, st.i);
     refreshTool();
   }
@@ -194,8 +194,15 @@ ${r ? `<p class="cysurf-score"><b>${r.score}/${s.exam.length} (${r.pct} %)</b> �
     if (v && v.length) { const u = new SpeechSynthesisUtterance(text); u.lang = L('en-US', 'fr-FR'); u.voice = v.find((x) => /natural|online|neural|google/i.test(x.name)) || v[0]; u.onend = next; u.onerror = next; S.speak(u); }
     else st.timer = setTimeout(next, Math.max(2500, text.split(/\s+/).length / 2.5 * 1000));
   }
+  // the same slides, played as a narrated 3D film (cyclops-film.js)
+  function film() {
+    stop(); st.playing = false; const m = st.m; draw();
+    window.CYFILM.play(m, st.i, { onSlide: (i) => mark(m, i), onClose: (i) => { if (st.m === m && ui && ui.dlg.open) { st.i = i; st.b = 0; draw(); } } });
+  }
   function onClick(e) {
     const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
+    if (d.pcFilmM) { start(d.pcFilmM); return film(); }
+    if (d.pcFilm) return film();
     if (d.pc) return start(d.pc);
     if (d.pcBack) return pick();
     if (d.pcOpen) { const o = COURSES[st.m].slides[st.i].open; stop(); ui.close(); if (o.twin && window.CYTWIN) window.CYTWIN.open(o.twin); else if (window.CYHOME) window.CYHOME.procedures(o.m, o.sel, o.mode); return; }

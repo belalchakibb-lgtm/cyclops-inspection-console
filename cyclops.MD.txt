@@ -876,6 +876,12 @@ Sauvegarde des fichiers d'origine : _backup-2026-11-03/
 - Base de connaissances : nouveau type de source « Guide d'étude ASME/API » (résumé pédagogique, édition à vérifier), aussi utilisable par l'assistant principal. Nouveau test serveur (8 tests).
 - Constat : le modèle NVIDIA actuel (llama-3.2-90b-vision) est trop lent sur l'offre gratuite pour les réponses longues (délai dépassé) ; à revoir (autre modèle ou clé Anthropic).
 
+### Vidéos 3D des cours professionnels
+- Nouveaux cyclops-film.js (lecteur) et cyclops-film-scenes.js (scènes) : chaque cours se joue comme une vidéo 3D narrée, 98 scènes Three.js en temps réel pour les 8 cours (UT, RT, MT, PT, VT, APVG, APL, APE). Bouton « Voir la vidéo 3D » sur chaque cours et « Vidéo 3D » sur chaque diapositive. Three.js chargé à la demande depuis vendor/.
+- La scène avance avec la voix (un temps par point narré), avec sous-titres, faits à l'écran, tableau du code avec son badge et sa source, frise cliquable, pause, vitesse, question de contrôle en pause, écran de fin vers l'examen. Les textes et tableaux viennent des diapositives ; le mode diapositives, les calculateurs et les examens sont conservés.
+- Scènes illustratives, pas à l'échelle, signalées comme telles ; les travaux résolus restent fictifs. Limite honnête : la voix est celle de l'appareil (synthèse du navigateur) et il n'y a pas de fichier vidéo téléchargeable. Sans voix, le rythme passe sur une minuterie ; sans WebGL, un message s'affiche et la narration et les tableaux restent.
+- Testé dans le navigateur : 98 scènes sans erreur ni scène manquante, revue visuelle, voix réelle, question, fin de vidéo vers examen, français, largeur téléphone. 12 tests serveur réussis.
+
 ### Cours professionnels MT, PT et VT approfondis
 - Nouveau cyclops-procourse-surf.js : MT 12 diapositives, PT 12, VT et soudage 11, chacun avec un travail résolu et un examen de 12 questions, plus 5 calculateurs (courant des pointes, temps de pénétration selon la température, caniveau, surépaisseur ISO 5817, gorge d'une soudure d'angle) et liens vers les simulateurs MT et PT. Les diapositives existantes sont conservées.
 - Recoupé sur des copies publiques ou secondaires (pas le code payant) : pointes ASME 100–125 A/in au-dessus de 19 mm et écartement maximal 203 mm ; concentration des bains ; T-672 (10–52 °C, doublement de 5 à 10 °C, 2 h au maximum).
