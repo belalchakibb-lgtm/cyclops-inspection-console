@@ -1,0 +1,52 @@
+name: PROJECT ZERO (Roblox) checks
+
+on:
+  push:
+    paths:
+      - "project-zero/**"
+      - ".github/workflows/project-zero.yml"
+  pull_request:
+    paths:
+      - "project-zero/**"
+  workflow_dispatch:
+
+jobs:
+  check-and-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: project-zero
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Static checks (syntax, globals, cross-module API, remotes)
+        run: |
+          npm install --no-save --prefix /tmp/lint luaparse@0.3.1
+          LUAPARSE=/tmp/lint/node_modules/luaparse node tools/lint.cjs
+
+      - name: Install Selene (Roblox Luau linter) and Rojo
+        run: |
+          curl -sSL -o /tmp/selene.zip https://github.com/Kampfkarren/selene/releases/download/0.27.1/selene-0.27.1-linux.zip
+          curl -sSL -o /tmp/rojo.zip https://github.com/rojo-rbx/rojo/releases/download/v7.4.4/rojo-7.4.4-linux-x86_64.zip
+          mkdir -p /tmp/bin && unzip -o -q /tmp/selene.zip -d /tmp/bin && unzip -o -q /tmp/rojo.zip -d /tmp/bin
+          chmod +x /tmp/bin/selene /tmp/bin/rojo
+          echo "/tmp/bin" >> "$GITHUB_PATH"
+
+      - name: Selene lint (Roblox standard library)
+        run: selene src
+
+      - name: Build place with Rojo
+        run: rojo build default.project.json -o build/ProjectZero-rojo.rbxlx
+
+      - name: Build place with the bundled builder
+        run: python3 tools/build_rbxlx.py
+
+      - name: Upload place files
+        uses: actions/upload-artifact@v4
+        with:
+          name: ProjectZero-place
+          path: project-zero/build/*.rbxlx
