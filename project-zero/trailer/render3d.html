@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>PROJECT: ZERO trailer renderer</title>
+<style>html,body{margin:0;background:#000}canvas{display:block}</style>
+<script type="importmap">
+{ "imports": { "three": "./node_modules/three/build/three.module.js", "three/addons/": "./node_modules/three/examples/jsm/" } }
+</script>
+</head>
+<body>
+<script type="module">
+// Renders trailer shots from the REAL Chapter 1 map exported by export_world.cjs.
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+const W = 720, H = 1280;
+const world = await (await fetch('world.json')).json();
+const P = Object.fromEntries(Object.entries(world.points).map(([k, v]) => [k, new THREE.Vector3(...v)]));
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(W, H);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(62, W / H, 0.1, 900);
+scene.fog = new THREE.FogExp2(0x5d6470, 0.011);
+
+// ---------- procedural material textures (Roblox-like materials) ----------
+function canvasTex(draw, size = 128) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  const g = c.getContext('2d'); draw(g, size);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4; return t;
+}
+let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+function speckle(g, s, base, amt, n) { g.fillStyle = base; g.fillRect(0, 0, s, s); for (let i = 0; i < n; i++) { const v = (rnd() - 0.5) * amt; g.fillStyle = `rgba(${v > 0 ? 255 : 0},${v > 0 ? 255 : 0},${v > 0 ? 255 : 0},${Math.abs(v)})`; g.fillRect(rnd() * s, rnd() * s, 1 + rnd() * 2, 1 + rnd() * 2); } }
+const TEX = {
+  Concrete: canvasTex((g, s) => speckle(g, s, '#c8c8c8', 0.35, 2500)),
+  Pavement: canvasTex((g, s) => { speckle(g, s, '#c4c4c4', 0.25, 1500); g.strokeStyle = 'rgba(0,0,0,0.35)'; g.lineWidth = 2; for (let i = 0; i <= s; i += s / 2) { g.beginPath(); g.moveTo(i, 0); g.lineTo(i, s); g.moveTo(0, i); g.lineTo(s, i); g.stroke(); } }),
+  Asphalt: canvasTex((g, s) => speckle(g, s, '#bdbdbd', 0.5, 4000)),
+  Brick: canvasTex((g, s) => { g.fillStyle = '#d0d0d0'; g.fillRect(0, 0, s, s); g.fillStyle = 'rgba(0,0,0,0.35)'; for (let r = 0; r < 8; r++) { g.fillRect(0, r * 16, s, 2); for (let c = 0; c < 4; c++) g.fillRect(((c * 32) + (r % 2) * 16) % s, r * 16, 2, 16); } speckle(g, 0, '#000', 0, 0); }),
+  WoodPlanks: canvasTex((g, s) => { g.fillStyle = '#c9c9c9'; g.fillRect(0, 0, s, s); for (let i = 0; i < 6; i++) { g.fillStyle = `rgba(0,0,0,${0.08 + rnd() * 0.1})`; g.fillRect(0, i * s / 6, s, s / 6 - 2); g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(0, i * s / 6 - 2, s, 2); } }),
+  Wood: canvasTex((g, s) => { g.fillStyle = '#cfcfcf'; g.fillRect(0, 0, s, s); for (let i = 0; i < 40; i++) { g.strokeStyle = `rgba(0,0,0,${rnd() * 0.15})`; g.beginPath(); g.moveTo(0, rnd() * s); g.lineTo(s, rnd() * s); g.stroke(); } }),
+  Metal: canvasTex((g, s) => { g.fillStyle = '#d6d6d6'; g.fillRect(0, 0, s, s); for (let i = 0; i < 200; i++) { g.fillStyle = `rgba(255,255,255,${rnd() * 0.12})`; g.fillRect(0, rnd() * s, s, 1); } }),
+  DiamondPlate: canvasTex((g, s) => { g.fillStyle = '#cfcfcf'; g.fillRect(0, 0, s, s); g.fillStyle = 'rgba(255,255,255,0.35)'; for (let y = 0; y < s; y += 16) for (let x = (y / 16 % 2) * 8; x < s; x += 16) { g.save(); g.translate(x, y); g.rotate(0.7); g.fillRect(-5, -1.5, 10, 3); g.restore(); } }),
+  CorrodedMetal: canvasTex((g, s) => { speckle(g, s, '#bbbbbb', 0.6, 3000); }),
+  Fabric: canvasTex((g, s) => { g.fillStyle = '#d4d4d4'; g.fillRect(0, 0, s, s); g.fillStyle = 'rgba(0,0,0,0.08)'; for (let i = 0; i < s; i += 3) { g.fillRect(i, 0, 1, s); g.fillRect(0, i, s, 1); } }),
+  Marble: canvasTex((g, s) => { g.fillStyle = '#e6e6e6'; g.fillRect(0, 0, s, s); g.strokeStyle = 'rgba(0,0,0,0.12)'; g.lineWidth = 4; g.strokeRect(0, 0, s, s); }),
+  Slate: canvasTex((g, s) => speckle(g, s, '#b0b0b0', 0.5, 2000)),
+  Ground: canvasTex((g, s) => speckle(g, s, '#bfbfbf', 0.5, 2500)),
+};
+const ROUGH = { Metal: 0.45, DiamondPlate: 0.4, Glass: 0.1, SmoothPlastic: 0.55, Marble: 0.35, CorrodedMetal: 0.8 };
+const METAL = { Metal: 0.6, DiamondPlate: 0.6, CorrodedMetal: 0.3 };
+
+function boxGeo(sx, sy, sz) {
+  const geo = new THREE.BoxGeometry(sx, sy, sz);
+  const uv = geo.attributes.uv; const k = 1 / 6;
+  const dims = [[sz, sy], [sz, sy], [sx, sz], [sx, sz], [sx, sy], [sx, sy]];
+  for (let f = 0; f < 6; f++) for (let v = 0; v < 4; v++) { const i = f * 4 + v; uv.setXY(i, uv.getX(i) * dims[f][0] * k, uv.getY(i) * dims[f][1] * k); }
+  return geo;
+}
+
+const matCache = new Map();
+function material(m, c, t) {
+  const key = m + c.join(',') + t;
+  if (matCache.has(key)) return matCache.get(key);
+  const color = new THREE.Color(c[0], c[1], c[2]).convertSRGBToLinear();
+  let mat;
+  if (m === 'Neon') mat = new THREE.MeshBasicMaterial({ color: color.clone().multiplyScalar(2.2), fog: true });
+  else if (m === 'Glass') mat = new THREE.MeshStandardMaterial({ color, roughness: 0.05, metalness: 0.3, transparent: true, opacity: t >= 1 ? 0 : 0.35, depthWrite: false });
+  else mat = new THREE.MeshStandardMaterial({ color, map: TEX[m] || null, roughness: ROUGH[m] ?? 0.85, metalness: METAL[m] ?? 0 });
+  if (t > 0 && m !== 'Glass') { mat.transparent = true; mat.opacity = 1 - t; }
+  matCache.set(key, mat); return mat;
+}
+
+function textTexture(text, tc, w, h) {
+  const c = document.createElement('canvas'); c.width = Math.max(64, Math.round(w * 40)); c.height = Math.max(32, Math.round(h * 40));
+  const g = c.getContext('2d'); g.fillStyle = '#1e282d'; g.fillRect(0, 0, c.width, c.height);
+  const lines = text.split('\n'); let fs = c.height / (lines.length * 1.25);
+  g.font = `bold ${fs}px sans-serif`;
+  const maxw = Math.max(...lines.map(l => g.measureText(l).width)); if (maxw > c.width * 0.92) fs *= c.width * 0.92 / maxw;
+  g.font = `bold ${fs}px sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = `rgb(${tc.map(v => v * 255).join(',')})`;
+  lines.forEach((l, i) => g.fillText(l, c.width / 2, c.height / 2 + (i - (lines.length - 1) / 2) * fs * 1.15));
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+// ---------- build the map ----------
+const flickerMats = [];
+const fires = [];
+const shutter = [];
+for (const [i, p] of world.parts.entries()) {
+  if (p.n === 'Boundary') continue;
+  const m = p.m.replace('Material.', '');
+  const shape = p.sh.replace('PartType.', '');
+  let geo;
+  if (shape === 'Cylinder') { geo = new THREE.CylinderGeometry(p.s[1] / 2, p.s[1] / 2, p.s[0], 20); geo.rotateZ(Math.PI / 2); }
+  else if (shape === 'Ball') geo = new THREE.SphereGeometry(p.s[0] / 2, 16, 12);
+  else geo = boxGeo(p.s[0], p.s[1], p.s[2]);
+  let mat = material(m, p.c, p.t);
+  if (p.text) {
+    const tex = textTexture(p.text, p.tc || [1, 1, 1], p.s[0], p.s[1]);
+    const face = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
+    mat = [mat, mat, mat, mat, mat, face]; // Roblox Front = -Z ... BoxGeometry group 5 is -Z
+  }
+  if (m === 'Neon' && p.n === 'Lamp' && (i * 7919) % 10 < 4) { mat = mat.clone(); flickerMats.push({ mat, base: mat.color.clone(), seed: i }); }
+  const mesh = new THREE.Mesh(geo, mat);
+  const r = p.r;
+  const m4 = new THREE.Matrix4().set(r[0], r[1], r[2], p.p[0], r[3], r[4], r[5], p.p[1], r[6], r[7], r[8], p.p[2], 0, 0, 0, 1);
+  mesh.matrixAutoUpdate = false; mesh.matrix.copy(m4);
+  mesh.castShadow = m !== 'Glass' && m !== 'Neon' && p.s[1] < 60; mesh.receiveShadow = true;
+  scene.add(mesh);
+  if (Math.abs(p.p[2] - 300) < 0.6 && p.s[0] > 15 && m === 'CorrodedMetal') shutter.push({ mesh, base: m4.clone() });
+}
+for (const l of world.lights) if (l.type === 'Fire') fires.push(new THREE.Vector3(...l.p));
+const flare = world.lights.find(l => l.type === 'Smoke');
+
+// ---------- sky, sun, ambient ----------
+const skyGeo = new THREE.SphereGeometry(800, 32, 16);
+const skyMat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: false, fog: false, uniforms: { top: { value: new THREE.Color(0x1b2233) }, mid: { value: new THREE.Color(0x6a5a62) }, bot: { value: new THREE.Color(0x8a6a58) } },
+  vertexShader: 'varying vec3 vp; void main(){ vp = normalize(position); gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+  fragmentShader: 'uniform vec3 top; uniform vec3 mid; uniform vec3 bot; varying vec3 vp; void main(){ float h = vp.y; vec3 c = h > 0.08 ? mix(mid, top, smoothstep(0.08, 0.6, h)) : mix(bot, mid, smoothstep(-0.1, 0.08, h)); gl_FragColor = vec4(c, 1.0); }' });
+scene.add(new THREE.Mesh(skyGeo, skyMat));
+const hemi = new THREE.HemisphereLight(0x8090a8, 0x2a2420, 0.55); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffb487, 1.1);
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0005;
+Object.assign(sun.shadow.camera, { left: -90, right: 90, top: 90, bottom: -90, near: 1, far: 500 });
+scene.add(sun, sun.target);
+
+// pool of dynamic point lights (fixed count => no shader recompiles)
+const POOL = 10;
+const pool = [];
+for (let i = 0; i < POOL; i++) { const pl = new THREE.PointLight(0xffffff, 0, 20, 1.3); scene.add(pl); pool.push(pl); }
+const lightSources = world.lights.filter(l => l.type !== 'Smoke').map(l => ({ pos: new THREE.Vector3(...l.p), color: new THREE.Color(...l.c), range: l.range, b: l.b, fire: l.type === 'Fire', part: l.part }));
+function assignLights(center, t) {
+  const sorted = lightSources.map(s => [s, s.pos.distanceToSquared(center)]).sort((a, b) => a[1] - b[1]).slice(0, POOL);
+  sorted.forEach(([s], i) => {
+    const pl = pool[i]; pl.position.copy(s.pos); pl.position.y -= 0.6; pl.color.copy(s.color); pl.distance = s.range * 1.6;
+    let k = s.b * 22; if (s.fire) k *= 0.8 + 0.3 * Math.sin(t * 17 + i) * Math.sin(t * 7.3);
+    pl.intensity = k;
+  });
+}
+
+// ---------- characters (Roblox-style blocky R15 look) ----------
+function lin(c) { return new THREE.Color(...c).convertSRGBToLinear(); }
+function std(c, rough = 0.7) { return new THREE.MeshStandardMaterial({ color: Array.isArray(c) ? lin(c) : c, roughness: rough }); }
+function part(geo, mat, parent, x, y, z) { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; }
+function rbox(w, h, d) { return new THREE.BoxGeometry(w, h, d); }
+function makeCharacter(o) {
+  const g = new THREE.Group(); const s = o.scale || 1;
+  const skin = std(o.skin), shirt = std(o.shirt), pants = std(o.pants);
+  const body = new THREE.Group(); g.add(body);
+  part(rbox(2, 1.6, 1), shirt, body, 0, 4.3, 0); part(rbox(1.9, 0.6, 0.95), pants, body, 0, 3.2, 0);
+  const head = new THREE.Group(); head.position.set(0, 5.75, 0); body.add(head);
+  const hm = part(new THREE.CylinderGeometry(0.62, 0.62, 1.2, 20), skin, head, 0, 0, 0);
+  if (o.eyes) { const em = new THREE.MeshBasicMaterial({ color: lin(o.eyes).multiplyScalar(4) }); for (const x of [-0.24, 0.24]) part(new THREE.SphereGeometry(0.11, 8, 6), em, head, x, 0.1, -0.6); part(rbox(0.5, 0.1, 0.05), std([0.1, 0.06, 0.06]), head, 0, -0.27, -0.61); }
+  else { const em = std([0.08, 0.08, 0.08]); for (const x of [-0.22, 0.22]) part(rbox(0.12, 0.2, 0.05), em, head, x, 0.12, -0.61); }
+  if (o.headband) part(new THREE.CylinderGeometry(0.66, 0.66, 0.22, 20), std([0.75, 0.12, 0.12]), head, 0, 0.3, 0);
+  const limb = (mat, x, y, len, w) => { const pivot = new THREE.Group(); pivot.position.set(x, y, 0); body.add(pivot); part(rbox(w, len, w), mat, pivot, 0, -len / 2, 0); return pivot; };
+  const la = limb(o.armMat === 'shirt' ? shirt : skin, -1.5, 5, 2.1, 0.9), ra = limb(o.armMat === 'shirt' ? shirt : skin, 1.5, 5, 2.1, 0.9);
+  if (o.armMat === 'shirt') { part(rbox(0.85, 0.5, 0.85), skin, la, 0, -2.1, 0); part(rbox(0.85, 0.5, 0.85), skin, ra, 0, -2.1, 0); }
+  const ll = limb(pants, -0.5, 2.9, 2.9, 0.95), rl = limb(pants, 0.5, 2.9, 2.9, 0.95);
+  if (o.tool) { const tool = part(new THREE.CylinderGeometry(0.17, 0.17, 4.2, 10), std(o.tool, 0.35), ra, 0, -2.2, -1.6); tool.rotation.x = Math.PI / 2; }
+  if (o.glow) { const l = new THREE.PointLight(lin(o.glow), 6, 12, 1.2); l.position.set(0, 4.5, -0.6); body.add(l); }
+  g.scale.setScalar(s);
+  g.userData = { body, head, la, ra, ll, rl, zombie: !!o.eyes, speed: o.speed || 1 };
+  scene.add(g); return g;
+}
+function animate(ch, t, moving = 1, phase = 0) {
+  const u = ch.userData; const w = t * 5.2 * u.speed + phase;
+  const swing = Math.sin(w) * 0.55 * moving;
+  u.ll.rotation.x = swing; u.rl.rotation.x = -swing;
+  if (u.zombie) { u.la.rotation.x = -1.45 + Math.sin(w * 0.5) * 0.12; u.ra.rotation.x = -1.35 - Math.sin(w * 0.5) * 0.12; u.body.rotation.z = Math.sin(w * 0.5) * 0.06; u.head.rotation.z = 0.25 + Math.sin(w * 0.3) * 0.1; }
+  else if (!u.armsSet) { u.la.rotation.x = -swing * 0.8; u.ra.rotation.x = swing * 0.8; }
+  u.body.position.y = Math.abs(Math.cos(w)) * 0.15 * moving;
+}
+const Z = world.zombies;
+function zombie(type, x, z, facing) {
+  const d = Z[type];
+  const ch = makeCharacter({ skin: d.skin, shirt: d.shirt, pants: d.pants, eyes: d.eyes, scale: d.h * (type === 'Warden' ? 1 : 0.95), glow: type === 'Mutated' ? [0.25, 1, 0.8] : type === 'Warden' ? [1, 0.25, 0.15] : null, speed: type === 'Fast' ? 1.7 : type === 'Heavy' || type === 'Warden' ? 0.7 : 0.9 });
+  if (type === 'Heavy' || type === 'Warden') ch.userData.body.scale.x = 1.25;
+  ch.position.set(x, 0, z); ch.rotation.y = facing; return ch;
+}
+const survivor = makeCharacter({ skin: [0.8, 0.62, 0.48], shirt: [0.22, 0.26, 0.2], pants: [0.18, 0.22, 0.32], armMat: 'shirt', tool: [0.5, 0.52, 0.55] });
+const survivor2 = makeCharacter({ skin: [0.45, 0.32, 0.24], shirt: [0.45, 0.18, 0.12], pants: [0.15, 0.15, 0.17], armMat: 'shirt', tool: [0.6, 0.15, 0.12] });
+const maya = makeCharacter({ skin: [0.78, 0.55, 0.41], shirt: [0.14, 0.2, 0.33], pants: [0.16, 0.16, 0.18], armMat: 'shirt', headband: true, tool: [0.6, 0.43, 0.27] });
+const flashlight = new THREE.SpotLight(0xfff4d6, 0, 70, 0.5, 0.45, 1.1); flashlight.castShadow = true; flashlight.shadow.mapSize.set(1024, 1024);
+scene.add(flashlight, flashlight.target);
+
+const zs = {
+  corridor: zombie('Normal', 62, 30, -Math.PI / 2),
+  er1: zombie('Normal', 12, 56, Math.PI), er2: zombie('Normal', 24, 60, Math.PI * 0.8), er3: zombie('Fast', 30, 66, Math.PI * 1.1),
+  horde: [['Normal', 96, 200], ['Fast', 104, 192], ['Normal', 92, 186], ['Heavy', 100, 178], ['Mutated', 107, 205], ['Normal', 88, 212], ['Normal', 110, 184], ['Fast', 98, 220], ['Normal', 94, 228]].map(([t, x, z]) => zombie(t, x, z, 0)),
+  warden: zombie('Warden', 100, 268, 0),
+  minions: [zombie('Normal', 84, 272, 0), zombie('Fast', 118, 274, 0)],
+};
+// slam ring
+const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 1, 64), new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.12, 0.08).multiplyScalar(3), transparent: true, side: THREE.DoubleSide }));
+ring.rotation.x = -Math.PI / 2; scene.add(ring);
+// the ZERO CUBE
+const cube = new THREE.Group();
+cube.add(new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), new THREE.MeshStandardMaterial({ color: 0x050607, roughness: 0.2, metalness: 0.8 })));
+cube.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(2.02, 2.02, 2.02)), new THREE.LineBasicMaterial({ color: new THREE.Color(0.3, 1, 0.85).multiplyScalar(4) })));
+const cubeLight = new THREE.PointLight(0x55ffd5, 0, 26, 1.2); cube.add(cubeLight);
+cube.position.set(100, 4.5, 307); scene.add(cube);
+// fire sprites
+const fireTex = canvasTex((g, s) => { const gr = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); gr.addColorStop(0, 'rgba(255,240,180,1)'); gr.addColorStop(0.4, 'rgba(255,140,40,0.8)'); gr.addColorStop(1, 'rgba(255,60,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, s, s); });
+const smokeTex = canvasTex((g, s) => { const gr = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2); gr.addColorStop(0, 'rgba(255,255,255,0.6)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, s, s); });
+const flames = [];
+for (const f of fires) for (let i = 0; i < 6; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: fireTex, blending: THREE.AdditiveBlending, depthWrite: false, color: 0xffffff })); sp.userData = { base: f, i }; scene.add(sp); flames.push(sp); }
+const smokes = [];
+if (flare) for (let i = 0; i < 14; i++) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: smokeTex, depthWrite: false, color: 0xff7a6a, transparent: true })); sp.userData = { i }; scene.add(sp); smokes.push(sp); }
+
+// ---------- post processing ----------
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(W, H), 0.7, 0.55, 0.85); composer.addPass(bloom);
+composer.addPass(new OutputPass());
+const out = document.createElement('canvas'); out.width = W; out.height = H; const og = out.getContext('2d');
+
+// ---------- shots ----------
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const sm = x => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
+function cam(from, to, lookFrom, lookTo, u, fov = 62) { camera.position.lerpVectors(from, to, sm(u)); camera.lookAt(new THREE.Vector3().lerpVectors(lookFrom, lookTo, sm(u))); camera.fov = fov; camera.updateProjectionMatrix(); }
+function hideAll() { for (const o of [survivor, survivor2, maya, zs.corridor, zs.er1, zs.er2, zs.er3, zs.warden, ...zs.horde, ...zs.minions]) o.visible = false; ring.visible = false; flashlight.intensity = 0; cubeLight.intensity = 0; }
+function shake(a) { camera.position.x += (Math.random() - 0.5) * a; camera.position.y += (Math.random() - 0.5) * a; }
+
+const SHOTS = {
+  ward(u, t) {
+    survivor.visible = true; survivor.position.set(6, 2.95, 12.6); survivor.rotation.set(-Math.PI / 2, 0, 0); survivor.userData.armsSet = true;
+    survivor.userData.la.rotation.x = 0; survivor.userData.ra.rotation.x = 0;
+    cam(V(4, 11, 21), V(5.5, 7, 16.5), V(6, 2.5, 10), V(6, 3, 9.5), u, 55);
+    return { center: V(8, 10, 12), fog: 0.016 };
+  },
+  corridor(u, t) {
+    survivor.visible = true; survivor.rotation.set(0, Math.PI / 2, 0); survivor.position.set(96 - u * 4, 0.25, 30); animate(survivor, t, 1); survivor.userData.armsSet = false;
+    zs.corridor.visible = true; zs.corridor.position.set(58 + u * 9, 0.25, 30.5); animate(zs.corridor, t, 1);
+    flashlight.intensity = 260; flashlight.position.set(survivor.position.x - 1, 5.8, 30.6); flashlight.target.position.set(40, 3, 30);
+    cam(V(106, 7.2, 32.5), V(101 - u * 4, 6.6, 31.8), V(60, 4, 30), V(60, 4.5, 30), u, 58);
+    return { center: V(80, 12, 30), fog: 0.022 };
+  },
+  er(u, t) {
+    for (const [z, ph] of [[zs.er1, 0], [zs.er2, 1.3], [zs.er3, 2.2]]) { z.visible = true; animate(z, t, 0.35, ph); z.position.z -= 0; }
+    zs.er1.position.set(10, 0.25, 51 - u * 3); zs.er2.position.set(19, 0.25, 49 - u * 4); zs.er3.position.set(27, 0.25, 52 - u * 6);
+    for (const z of [zs.er1, zs.er2, zs.er3]) z.rotation.y = 0;
+    cam(V(30, 4.5, 37), V(24, 4, 38.5), V(14, 5, 50), V(18, 5, 50), u, 60);
+    return { center: V(20, 12, 58), fog: 0.02 };
+  },
+  reveal(u, t) {
+    survivor.visible = true; survivor.rotation.set(0, Math.PI, 0); survivor.position.set(65, 0.15, 86 + u * 4); animate(survivor, t, 0.8); survivor.userData.armsSet = false;
+    cam(V(65, 7, 70), V(65, 34, 82), V(65, 6, 100), V(110, 8, 170), u, 60);
+    return { center: V(66, 6, 100), fog: 0.009 };
+  },
+  street(u, t) {
+    zs.horde.forEach((z, i) => { z.visible = true; z.position.z = [200, 192, 186, 178, 205, 212, 184, 220, 228][i] - u * 22 * z.userData.speed; animate(z, t, 1, i); });
+    survivor.visible = true; survivor.rotation.set(0, Math.PI, 0); survivor.position.set(101, 0.12, 150 + u * 3); animate(survivor, t, 0.3); survivor.userData.armsSet = false;
+    flashlight.intensity = 110; flashlight.position.set(101, 5.8, 151 + u * 3); flashlight.target.position.set(100, 2, 190);
+    cam(V(106, 8, 128), V(105, 7, 136), V(100, 5, 200), V(100, 5, 190), u, 60);
+    return { center: V(100, 8, 175), fog: 0.012 };
+  },
+  maya(u, t) {
+    maya.visible = true; maya.position.set(147, 0.2, 152); maya.rotation.set(0, Math.PI / 2 - 0.3, 0); animate(maya, t, 0.05);
+    maya.userData.armsSet = true; maya.userData.ra.rotation.x = -0.6 + Math.sin(t * 2) * 0.05; maya.userData.la.rotation.x = -0.2;
+    cam(V(134.5, 6.5, 147), V(137.5, 6, 149), V(147, 5, 152), V(147, 5.3, 152), u, 55);
+    return { center: V(148, 14, 152), fog: 0.016 };
+  },
+  warden(u, t) {
+    zs.warden.visible = true; zs.warden.position.set(100, 0.1, 268 - u * 7); animate(zs.warden, t, 0.8);
+    zs.minions.forEach((z, i) => { z.visible = true; z.position.z = 274 - u * 9; animate(z, t, 1, i * 2); });
+    survivor.visible = true; survivor2.visible = true; survivor.rotation.set(0, Math.PI + 0.3, 0); survivor2.rotation.set(0, Math.PI - 0.3, 0);
+    survivor.position.set(90, 0.1, 248); survivor2.position.set(110, 0.1, 249); animate(survivor, t, 0.2); animate(survivor2, t, 0.2, 1);
+    ring.visible = true; const rr = 3 + ((u * 1.6) % 1) * 30; ring.scale.setScalar(rr); ring.position.set(zs.warden.position.x, 0.25, zs.warden.position.z); ring.material.opacity = 1 - ((u * 1.6) % 1);
+    cam(V(100, 3, 230), V(100, 3.5, 236), V(100, 13, 266), V(100, 12, 262), u, 60);
+    if (((u * 1.6) % 1) < 0.08) shake(0.6);
+    return { center: V(100, 6, 262), fog: 0.012, warden: true };
+  },
+  gate(u, t) {
+    for (const s of shutter) { const m = s.base.clone(); m.elements[13] += 9 * sm(u * 1.4); s.mesh.matrix.copy(m); }
+    cubeLight.intensity = 40 * sm(u * 1.5); cube.rotation.set(t * 0.7, t * 0.9, 0);
+    cam(V(100, 5, 272), V(100, 4.5, 298.5), V(100, 5, 300), V(100, 4.5, 307), u, 58);
+    return { center: V(100, 8, 296), fog: 0.014 };
+  },
+  aerial(u, t) {
+    for (const s of shutter) s.mesh.matrix.copy(s.base);
+    const a = 0.6 + u * 0.5;
+    cam(V(60 + Math.cos(a) * 160, 95, 150 + Math.sin(a) * 160), V(60 + Math.cos(a + 0.2) * 150, 85, 150 + Math.sin(a + 0.2) * 150), V(80, 0, 150), V(80, 0, 150), u, 55);
+    return { center: V(90, 10, 140), fog: 0.007 };
+  },
+};
+
+window.renderFrame = function (shot, u, t, overlay) {
+  hideAll();
+  const info = SHOTS[shot](u, t);
+  scene.fog.density = info.fog;
+  sun.position.set(camera.position.x - 120, 90, camera.position.z + 60); sun.target.position.copy(info.center);
+  assignLights(info.center, t);
+  for (const f of flickerMats) { const on = Math.sin(t * 13 + f.seed) * Math.sin(t * 5.1 + f.seed * 3) > -0.3; f.mat.color.copy(on ? f.base : f.base.clone().multiplyScalar(0.06)); }
+  for (const sp of flames) { const { base, i } = sp.userData; const k = (t * 1.6 + i / 6) % 1; sp.position.set(base.x + Math.sin(i * 3 + t * 4) * 0.4, base.y + 0.8 + k * 3, base.z + Math.cos(i * 2 + t * 3) * 0.4); sp.scale.setScalar(2.4 * (1 - k) + 0.4); sp.material.opacity = 1 - k; }
+  for (const sp of smokes) { const k = (t * 0.25 + sp.userData.i / 14) % 1; sp.position.set(flare.p[0] + k * 6, flare.p[1] + 1 + k * 22, flare.p[2] + k * 2); sp.scale.setScalar(2 + k * 9); sp.material.opacity = 0.45 * (1 - k); }
+  composer.render();
+  // 2D overlay: grain, vignette, letterbox, text
+  og.drawImage(renderer.domElement, 0, 0);
+  const vg = og.createRadialGradient(W / 2, H / 2, H * 0.25, W / 2, H / 2, H * 0.62); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.7)'); og.fillStyle = vg; og.fillRect(0, 0, W, H);
+  return out.toDataURL('image/jpeg', 0.93);
+};
+window.ready = true;
+</script>
+</body>
+</html>
