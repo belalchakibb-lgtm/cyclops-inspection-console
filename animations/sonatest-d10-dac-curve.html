@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DAC curve – Sonatest Sitescan D-10</title>
+<style>
+:root{--bg:#0c1420;--panel:#142131;--ink:#e8eef5;--mute:#94a6ba;--acc:#ffb020;--ok:#3ddc84;--line:#243750}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:radial-gradient(1200px 700px at 30% -10%,#1b2d45 0,var(--bg) 60%);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100vh}
+header{max-width:1320px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px 10px;flex-wrap:wrap}
+h1{font-size:20px;margin:0;letter-spacing:.2px}
+.sub{color:var(--mute);font-size:13px;margin-top:2px}
+.lang{display:flex;border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.lang button{background:transparent;color:var(--mute);border:0;padding:7px 14px;font:600 13px system-ui,sans-serif;cursor:pointer}
+.lang button.on{background:var(--acc);color:#1b1300}
+main{max-width:1320px;margin:0 auto;padding:0 20px 24px}
+.stage{display:grid;grid-template-columns:minmax(0,1.72fr) minmax(300px,1fr);gap:18px;align-items:start}
+@media (max-width:940px){.stage{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+#device{width:100%;height:auto;display:block;filter:drop-shadow(0 18px 30px rgba(0,0,0,.45))}
+.side{display:flex;flex-direction:column;gap:14px}
+.card h3{margin:0 0 6px;font-size:13px;color:var(--mute);font-weight:600;text-transform:uppercase;letter-spacing:.6px}
+#block{width:100%;height:auto;display:block}
+.readout{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px;font-size:12px;color:var(--mute)}
+.readout b{display:block;color:var(--ink);font:600 14px ui-monospace,Menlo,Consolas,monospace}
+.stepno{color:var(--acc);font-weight:700;font-size:13px;letter-spacing:.5px;text-transform:uppercase}
+#capTitle{margin:4px 0 6px;font-size:21px;line-height:1.2}
+#capText{margin:0;font-size:16px;min-height:4.4em}
+.hint{margin-top:10px;padding:9px 11px;border-radius:10px;background:#0e1a29;border:1px solid var(--line);font-size:14px;color:#ffd27a;display:flex;gap:8px;align-items:flex-start;min-height:2.9em}
+.hint::before{content:"▶";color:var(--acc);font-size:11px;margin-top:3px}
+.bar{height:4px;border-radius:4px;background:#0e1a29;margin-top:12px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#ff8a00,var(--acc))}
+.dots{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+.dots button{width:32px;height:32px;border-radius:50%;border:1px solid var(--line);background:#0e1a29;color:var(--mute);font:700 13px system-ui,sans-serif;cursor:pointer}
+.dots button.done{color:var(--ok);border-color:#2a6a48}
+.dots button.on{background:var(--acc);color:#1b1300;border-color:var(--acc)}
+.ctrl{display:flex;gap:8px;margin-top:12px}
+.ctrl button{flex:1;padding:10px 8px;border-radius:10px;border:1px solid var(--line);background:#1c2e45;color:var(--ink);font:600 14px system-ui,sans-serif;cursor:pointer}
+.ctrl button:hover,.dots button:hover,.lang button:hover{filter:brightness(1.2)}
+.ctrl #play{flex:.8;background:#24405f}
+.keys{margin-top:8px;font-size:12px;color:var(--mute)}
+
+/* ---------- device SVG ---------- */
+.key{transition:transform .07s;transform-box:fill-box;transform-origin:center}
+.key .cap{fill:url(#keyG);stroke:#1c1f23;stroke-width:2;transition:fill .08s}
+.key .klbl{fill:#eef2f6;font:700 17px system-ui,sans-serif;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.key .halo{fill:none;stroke:#ffb020;stroke-width:10;opacity:0;filter:url(#blur);transition:opacity .08s}
+.key.pressed{transform:scale(.94)}
+.key.pressed .cap{fill:#ffb020}
+.key.pressed .klbl{fill:#1b1300}
+.key.pressed .halo{opacity:.95}
+.key.okk .cap{fill:url(#okG)}
+.key.okk.pressed .cap{fill:#ffb020}
+.cell rect{fill:#0d241d;stroke:#1d4537;stroke-width:1.5}
+.cell .clbl{fill:#6f9686;font:700 15px ui-monospace,Menlo,Consolas,monospace;text-anchor:middle}
+.cell .cval{fill:#8fb8a7;font:600 13px ui-monospace,Menlo,Consolas,monospace;text-anchor:middle}
+.cell.active rect{fill:#113428;stroke:#2f7a5d}
+.cell.active .clbl{fill:#cfe9de}
+.cell.sel rect{fill:#ffb020;stroke:#ffe08a}
+.cell.sel .clbl,.cell.sel .cval{fill:#1b1300}
+.cval.m-DRAW{fill:#ffb020}.cval.m-ON{fill:#3ddc84}
+.cell.sel .cval.m-DRAW,.cell.sel .cval.m-ON{fill:#1b1300}
+.grid line{stroke:#1f4436;stroke-width:1}
+.grid line.maj{stroke:#2c5c4a}
+.scr{font-family:ui-monospace,Menlo,Consolas,monospace}
+.axl{fill:#5f8a79;font-size:11px}
+.stt{fill:#bfe3d4;font-size:14px;font-weight:600}
+#trace{fill:none;stroke:#ffe14d;stroke-width:1.6;stroke-linejoin:round;filter:url(#tglow)}
+#curve{fill:none;stroke:#ff3b6b;stroke-width:3;stroke-linecap:round;filter:url(#tglow)}
+.pt{fill:#ff3b6b;stroke:#fff;stroke-width:1.5}
+.ov{fill:#0a1c16;stroke:#3ddc84;stroke-width:1.5}
+.ovt{fill:#3ddc84;font:700 15px ui-monospace,Menlo,Consolas,monospace}
+.ovi{fill:#cfe9de;font:600 14px ui-monospace,Menlo,Consolas,monospace}
+.ovs{fill:#ffb020}
+.ovi.sel{fill:#1b1300}
+.blink{animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* ---------- block SVG ---------- */
+.hole{fill:#0c1420;stroke:#5b6b7c;stroke-width:1}
+.hring{fill:none;stroke-width:2.2;opacity:0}
+.hring.target{opacity:1;stroke:#ff9500;stroke-width:2.6;stroke-dasharray:5 3;animation:march 1s linear infinite}
+.hring.done{opacity:1;stroke:#3ddc84;stroke-dasharray:none;animation:none}
+@keyframes march{to{stroke-dashoffset:-16}}
+.hlbl{fill:#c9d6e3;font:600 11px system-ui,sans-serif;text-anchor:middle}
+.lg{fill:#94a6ba;font:12px system-ui,sans-serif}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1 id="hTitle">Drawing a DAC curve</h1>
+    <div class="sub" id="hSub">Sonatest Sitescan D-10 · step-by-step animation</div>
+  </div>
+  <div class="lang" role="group" aria-label="Language">
+    <button id="lEN" class="on">EN</button><button id="lFR">FR</button>
+  </div>
+</header>
+
+<main>
+<div class="stage">
+  <!-- ================= DEVICE ================= -->
+  <svg id="device" viewBox="0 0 1000 620" role="img" aria-label="Ultrasonic flaw detector front view">
+    <defs>
+      <linearGradient id="bumperG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a4e55"/><stop offset="1" stop-color="#2a2d32"/></linearGradient>
+      <linearGradient id="bodyG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c7cacf"/><stop offset=".5" stop-color="#aeb2b8"/><stop offset="1" stop-color="#8d9298"/></linearGradient>
+      <linearGradient id="keyG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5d636b"/><stop offset="1" stop-color="#3a3f45"/></linearGradient>
+      <linearGradient id="okG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f8f6a"/><stop offset="1" stop-color="#22603f"/></linearGradient>
+      <radialGradient id="padG"><stop offset=".6" stop-color="#2b2f34"/><stop offset="1" stop-color="#1d2024"/></radialGradient>
+      <linearGradient id="lcdG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0a1d17"/><stop offset="1" stop-color="#050f0c"/></linearGradient>
+      <filter id="blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4"/></filter>
+      <filter id="tglow" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="1.8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      <clipPath id="gridClip"><rect x="118" y="150" width="520" height="332"/></clipPath>
+    </defs>
+
+    <!-- body -->
+    <rect x="4" y="4" width="992" height="612" rx="58" fill="url(#bumperG)"/>
+    <rect x="22" y="22" width="956" height="576" rx="42" fill="url(#bodyG)" stroke="#7b8087" stroke-width="2"/>
+    <rect x="34" y="34" width="932" height="552" rx="34" fill="none" stroke="#d7dade" stroke-opacity=".55" stroke-width="1.5"/>
+    <text x="64" y="64" fill="#2b3036" font-family="system-ui,sans-serif" font-weight="800" font-size="20" letter-spacing="3">SONATEST</text>
+    <text x="948" y="64" fill="#2b3036" font-family="system-ui,sans-serif" font-weight="700" font-size="16" letter-spacing="1.5" text-anchor="end">SITESCAN D-10</text>
+
+    <!-- screen bezel + LCD -->
+    <rect x="56" y="78" width="620" height="490" rx="16" fill="#17191c" stroke="#5b6066" stroke-width="2"/>
+    <rect x="72" y="94" width="588" height="458" rx="6" fill="url(#lcdG)"/>
+    <g class="scr">
+      <g id="cells"></g>
+      <g class="grid" id="grid"></g>
+      <g id="axX"></g>
+      <g id="axY"></g>
+      <line id="ref80" x1="118" x2="638" stroke="#ffb020" stroke-width="1.5" stroke-dasharray="7 5" opacity="0"/>
+      <text id="ref80t" x="634" fill="#ffb020" font-size="12" text-anchor="end" opacity="0">80 %</text>
+      <g clip-path="url(#gridClip)">
+        <path id="trace"/>
+        <path id="curve" opacity="0"/>
+        <g id="pts"></g>
+        <g id="cursor" opacity="0">
+          <line id="curL" y1="162" y2="482" stroke="#5fd3ff" stroke-width="1.5" stroke-dasharray="5 4"/>
+          <path id="curM" fill="#5fd3ff"/>
+          <rect id="curBox" y="166" width="118" height="22" rx="4" fill="#06202a" stroke="#5fd3ff"/>
+          <text id="curT" y="182" fill="#bfefff" font-size="13" font-weight="600"></text>
+        </g>
+      </g>
+      <g id="toast" opacity="0">
+        <rect x="430" y="168" width="200" height="30" rx="6" fill="#0b3a26" stroke="#3ddc84"/>
+        <text id="toastT" x="530" y="188" fill="#c8ffe0" font-size="14" font-weight="700" text-anchor="middle"></text>
+      </g>
+      <!-- status bar -->
+      <line x1="80" x2="652" y1="506" y2="506" stroke="#1d4537"/>
+      <text class="stt" id="sGain" x="84" y="534"></text>
+      <g id="lock" opacity="0">
+        <rect x="200" y="518" width="58" height="22" rx="4" fill="#3a2a05" stroke="#ffb020"/>
+        <text x="229" y="534" fill="#ffb020" font-size="12" font-weight="700" text-anchor="middle">LOCK</text>
+      </g>
+      <text class="stt" id="sRange" x="272" y="534"></text>
+      <text class="stt" id="sVel" x="382" y="534"></text>
+      <text class="stt" id="sAng" x="486" y="534"></text>
+      <text class="stt" id="sPts" x="652" y="534" text-anchor="end"></text>
+      <g id="dropdown"></g>
+      <g id="overlay"></g>
+    </g>
+
+    <!-- keypad -->
+    <circle cx="833" cy="405" r="116" fill="url(#padG)" stroke="#6e737a" stroke-width="2"/>
+    <g id="keypad"></g>
+    <circle cx="726" cy="552" r="6" fill="#3ddc84"/>
+    <text x="740" y="557" fill="#2b3036" font-family="system-ui,sans-serif" font-size="13" font-weight="700">ON</text>
+    <circle cx="930" cy="552" r="17" fill="#3a3f45" stroke="#1c1f23" stroke-width="2"/>
+    <path d="M930 543 v9 M923.5 547 a9 9 0 1 0 13 0" fill="none" stroke="#e05555" stroke-width="2.5" stroke-linecap="round"/>
+  </svg>
+
+  <!-- ================= SIDE ================= -->
+  <div class="side">
+    <div class="card">
+      <h3 id="bTitle">Reference block with side-drilled holes (SDH)</h3>
+      <svg id="block" viewBox="0 0 480 268">
+        <defs>
+          <linearGradient id="steelG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8b98a6"/><stop offset="1" stop-color="#5d6976"/></linearGradient>
+          <linearGradient id="beamG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffd23f" stop-opacity=".75"/><stop offset="1" stop-color="#ffd23f" stop-opacity=".05"/></linearGradient>
+          <clipPath id="blockClip"><rect x="20" y="110" width="440" height="120"/></clipPath>
+          <filter id="hglow" x="-200%" y="-200%" width="500%" height="500%"><feGaussianBlur stdDeviation="5"/></filter>
+        </defs>
+        <rect x="20" y="110" width="440" height="120" fill="url(#steelG)" stroke="#a9b5c2"/>
+        <g clip-path="url(#blockClip)">
+          <polygon id="beam" fill="url(#beamG)"/>
+          <line id="beamC" stroke="#ffe14d" stroke-width="1.2" stroke-dasharray="4 3"/>
+        </g>
+        <g id="holes"></g>
+        <g id="probe">
+          <path d="M-36 0 H10 V-22 L-6 -36 H-36 Z" fill="#2f3842" stroke="#cfd8e2" stroke-width="1.2"/>
+          <line x1="-24" y1="-8" x2="-6" y2="-30" stroke="#ffb020" stroke-width="3"/>
+          <path d="M-30 -36 C -40 -60, -70 -70, -90 -96" fill="none" stroke="#2f3842" stroke-width="5" stroke-linecap="round"/>
+          <circle cx="0" cy="0" r="3" fill="#ffb020"/>
+          <text x="-13" y="-44" fill="#ffd27a" font-family="system-ui,sans-serif" font-size="12" font-weight="700" text-anchor="middle">60°</text>
+        </g>
+        <g transform="translate(24,254)">
+          <circle cx="4" cy="-4" r="5" fill="none" stroke="#ffb020" stroke-width="2" stroke-dasharray="3 2"/>
+          <text class="lg" x="14" y="0" id="lgT">current hole</text>
+          <circle cx="164" cy="-4" r="5" fill="none" stroke="#3ddc84" stroke-width="2"/>
+          <text class="lg" x="174" y="0" id="lgD">point recorded</text>
+        </g>
+      </svg>
+      <div class="readout">
+        <div><span id="rPL">Probe</span><b id="rP">–</b></div>
+        <div><span id="rEL">Peak echo</span><b id="rE">–</b></div>
+        <div><span id="rGL">Gain</span><b id="rG">–</b></div>
+      </div>
+    </div>
+
+    <div class="card" aria-live="polite">
+      <div class="stepno" id="capNo">Step 1 of 7</div>
+      <h2 id="capTitle"></h2>
+      <p id="capText"></p>
+      <div class="hint" id="hint"></div>
+      <div class="bar"><i id="prog"></i></div>
+      <div class="dots" id="dots"></div>
+      <div class="ctrl">
+        <button id="prev">◀ Previous</button>
+        <button id="play">❚❚ Pause</button>
+        <button id="next">Next ▶</button>
+      </div>
+      <div class="keys" id="kbd">← → change step · Space pause · loops automatically</div>
+    </div>
+  </div>
+</div>
+</main>
+
+<script>
+(() => {
+"use strict";
+const $ = id => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const ease = u => u < .5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+const seg = (t, a, b) => ease(clamp((t - a) / (b - a)));
+const lin = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, u) => a + (b - a) * u;
+const at = (t, x, d = .25) => t >= x && t < x + d;
+function track(t, kf) {
+  if (t <= kf[0][0]) return kf[0][1];
+  for (let i = 1; i < kf.length; i++)
+    if (t <= kf[i][0]) return lerp(kf[i - 1][1], kf[i][1], seg(t, kf[i - 1][0], kf[i][0]));
+  return kf[kf.length - 1][1];
+}
+
+/* ---------------- text ---------------- */
+const T = {
+  en: {
+    title: "Drawing a DAC curve", sub: "Sonatest Sitescan D-10 · step-by-step animation",
+    prev: "◀ Previous", next: "Next ▶", play: "▶ Play", pause: "❚❚ Pause",
+    step: (n, m) => `Step ${n} of ${m}`,
+    block: "Reference block with side-drilled holes (SDH)", cur: "current hole", done: "point recorded",
+    probe: "Probe", echo: "Peak echo", gain: "Gain", none: "no echo", hole: "SDH",
+    kbd: "← → change step · Space pause · loops automatically",
+    steps: [
+      ["Calibrate", "Calibrate range, velocity, zero and probe angle."],
+      ["Reference echo at 80 %", "Place the probe on the nearest side-drilled hole, peak the echo and set it to 80 % screen height with the gain."],
+      ["Enter DAC draw mode", "Open MENU > MEAS > DAC and set MODE to DRAW."],
+      ["Record point 1", "Move the cursor onto the echo and press OK to record point 1."],
+      ["Record the deeper holes", "Move to the next deeper hole, peak it without touching the gain, put the cursor on it and press OK. Repeat for each hole, up to 10 points."],
+      ["Switch the curve on", "Set MODE to ON so the curve is drawn through the points."],
+      ["Save the setup", "Save the setup in the MEMORY menu."]
+    ],
+    h: {
+      menuCal: "Press MENU to open the calibration settings",
+      cal0: "RANGE: hold ▲ up to 100 mm of sound path",
+      cal1: "VELOCITY: shear waves in steel, 3240 m/s",
+      cal2: "ZERO: compensate the probe delay",
+      cal3: "ANGLE: enter the measured probe angle, 60°",
+      calOk: "OK confirms — the time base is calibrated",
+      peak: "Scan back and forth to find the maximum echo from hole 1",
+      gain: "Hold dB+ until the echo reaches 80 % (dashed line)",
+      ref: "Reference gain = 46.0 dB — do not change it from now on",
+      menu: "Press MENU — the menu bar becomes active",
+      meas: "MEAS: open with OK, choose DAC with ▼, confirm with OK",
+      toMode: "► moves to MODE",
+      draw: "OK, ▼ to DRAW, OK",
+      drawOn: "DRAW mode: the instrument is ready to record points",
+      curSel: "► selects CURSOR",
+      curMove: "Hold ► to bring the cursor onto the echo peak",
+      pt1: "OK — point 1 recorded",
+      next: "Hole {n}: peak the echo — the gain stays at 46.0 dB",
+      ptN: "OK — point {n} recorded",
+      upTo10: "Repeat for every hole: up to 10 points",
+      modeOn: "Back to MODE: OK, ▼ to ON, OK",
+      curve: "The DAC curve is drawn through the recorded points",
+      mem: "Press MEM to open the MEMORY menu",
+      name: "SAVE SETUP: give the setup a name, then OK",
+      saving: "Saving…",
+      saved: "Setup saved — recall it at the start of each inspection"
+    }
+  },
+  fr: {
+    title: "Tracer une courbe DAC", sub: "Sonatest Sitescan D-10 · animation pas à pas",
+    prev: "◀ Précédent", next: "Suivant ▶", play: "▶ Lecture", pause: "❚❚ Pause",
+    step: (n, m) => `Étape ${n} sur ${m}`,
+    block: "Bloc de référence à trous génératrices (TG)", cur: "trou en cours", done: "point enregistré",
+    probe: "Traducteur", echo: "Écho max", gain: "Gain", none: "pas d’écho", hole: "TG",
+    kbd: "← → changer d’étape · Espace pause · lecture en boucle",
+    steps: [
+      ["Étalonnage", "Étalonnez la base de temps (range), la vitesse, le zéro et l’angle du traducteur."],
+      ["Écho de référence à 80 %", "Placez le traducteur sur le trou génératrice le plus proche, maximisez l’écho et réglez-le à 80 % de la hauteur d’écran avec le gain."],
+      ["Passer en mode tracé", "Ouvrez MENU > MEAS > DAC et réglez MODE sur DRAW."],
+      ["Enregistrer le point 1", "Placez le curseur sur l’écho et appuyez sur OK pour enregistrer le point 1."],
+      ["Enregistrer les trous plus profonds", "Passez au trou suivant plus profond, maximisez l’écho sans toucher au gain, placez le curseur dessus et appuyez sur OK. Répétez pour chaque trou, jusqu’à 10 points."],
+      ["Afficher la courbe", "Réglez MODE sur ON : la courbe est tracée à travers les points."],
+      ["Sauvegarder la configuration", "Sauvegardez la configuration dans le menu MEMORY."]
+    ],
+    h: {
+      menuCal: "Appuyez sur MENU pour ouvrir les réglages d’étalonnage",
+      cal0: "RANGE : maintenez ▲ jusqu’à 100 mm de parcours",
+      cal1: "VITESSE : ondes transversales dans l’acier, 3240 m/s",
+      cal2: "ZÉRO : compensez le retard du traducteur",
+      cal3: "ANGLE : saisissez l’angle mesuré du traducteur, 60°",
+      calOk: "OK valide — la base de temps est étalonnée",
+      peak: "Déplacez le traducteur d’avant en arrière pour trouver l’écho maximal du trou 1",
+      gain: "Maintenez dB+ jusqu’à ce que l’écho atteigne 80 % (ligne pointillée)",
+      ref: "Gain de référence = 46,0 dB — ne plus le modifier",
+      menu: "Appuyez sur MENU — la barre de menu devient active",
+      meas: "MEAS : ouvrez avec OK, choisissez DAC avec ▼, validez avec OK",
+      toMode: "► passe à MODE",
+      draw: "OK, ▼ jusqu’à DRAW, OK",
+      drawOn: "Mode DRAW : l’appareil est prêt à enregistrer les points",
+      curSel: "► sélectionne CURSOR",
+      curMove: "Maintenez ► pour amener le curseur sur le sommet de l’écho",
+      pt1: "OK — point 1 enregistré",
+      next: "Trou {n} : maximisez l’écho — le gain reste à 46,0 dB",
+      ptN: "OK — point {n} enregistré",
+      upTo10: "Répétez pour chaque trou : jusqu’à 10 points",
+      modeOn: "Retour sur MODE : OK, ▼ jusqu’à ON, OK",
+      curve: "La courbe DAC est tracée à travers les points enregistrés",
+      mem: "Appuyez sur MEM pour ouvrir le menu MEMORY",
+      name: "SAVE SETUP : nommez la configuration, puis OK",
+      saving: "Sauvegarde…",
+      saved: "Configuration sauvegardée — rappelez-la au début de chaque contrôle"
+    }
+  }
+};
+let lang = "en";
+
+/* ---------------- physics / geometry ---------------- */
+// 60° shear-wave probe; side-drilled holes at increasing depth. Amplitudes (A) are at the 46 dB reference gain.
+const REF_GAIN = 46, ANG = Math.PI / 3;
+const HOLES = [
+  { bx: 60, d: 15, A: 80 }, { bx: 100, d: 25, A: 57 },
+  { bx: 140, d: 35, A: 40 }, { bx: 180, d: 45, A: 27 }
+].map(h => ({ ...h, p: h.bx - h.d * Math.tan(ANG), s: h.d / Math.cos(ANG) }));
+const PARK = 18;
+function echoes(S) {
+  const g = Math.pow(10, (S.gain - REF_GAIN) / 20);
+  return HOLES.map(h => {
+    const w = Math.exp(-Math.pow((S.probe - h.p) / 5, 2));
+    return { a: h.A * g * w, s: Math.hypot(h.bx - S.probe, h.d), w };
+  });
+}
+
+/* ---------------- screen geometry ---------------- */
+const GX = 118, GY = 162, GW = 520, GH = 320;
+const sx = (mm, range) => GX + mm / range * GW;
+const ay = a => GY + GH * (1 - a / 100);
+
+/* ---------------- step timelines ---------------- */
+function preset(k) {
+  const S = { probe: PARK, gain: 38, cal: { range: 100, vel: 3240, zero: 6.85, angle: 60 }, calOv: null,
+    menu: false, sel: -1, dd: null, meas: "—", mode: "OFF", cursor: null, points: 0, curve: 0,
+    keys: [], hint: null, ref80: false, toast: null, lock: false, mem: null, target: -1 };
+  if (k === 0) S.cal = { range: 50, vel: 3000, zero: 0, angle: 45 };
+  if (k >= 2) { S.probe = HOLES[0].p; S.gain = REF_GAIN; S.target = 0; }
+  if (k >= 3) { S.menu = true; S.meas = "DAC"; S.mode = "DRAW"; S.sel = 2; }
+  if (k >= 4) { S.points = 1; S.sel = 3; S.cursor = HOLES[0].s; }
+  if (k >= 5) { S.points = 4; S.probe = HOLES[3].p; S.cursor = HOLES[3].s; S.target = 3; }
+  if (k >= 6) { S.mode = "ON"; S.curve = 1; S.cursor = null; S.sel = 2; }
+  return S;
+}
+const DD_MEAS = ["GATE", "DAC", "TCG", "AWS"], DD_MODE = ["OFF", "DRAW", "ON"];
+
+const STEPS = [
+  { dur: 10.5, run(t) { // 1 calibrate
+    const S = preset(0);
+    if (at(t, .3)) S.keys.push("menu");
+    S.hint = ["menuCal"];
+    if (t >= .5) S.calOv = { field: 0, done: false };
+    const F = [["range", 50, 100], ["vel", 3000, 3240], ["zero", 0, 6.85], ["angle", 45, 60]];
+    F.forEach(([name, v0, v1], i) => {
+      const a = .9 + i * 2, b = a + 1.4;
+      if (i > 0 && t >= a - .45) S.calOv.field = i;
+      if (i > 0 && at(t, a - .45)) S.keys.push("down");
+      if (t >= (i ? a - .45 : .9)) S.hint = ["cal" + i];
+      S.cal[name] = lerp(v0, v1, seg(t, a, b));
+      if (t > a && t < b) S.keys.push("up");
+    });
+    if (at(t, 9)) S.keys.push("ok");
+    if (t >= 9) { S.calOv.done = true; S.calOv.field = -1; S.hint = ["calOk"]; }
+    return S;
+  }},
+  { dur: 11, run(t) { // 2 peak + 80 %
+    const S = preset(1), p = HOLES[0].p;
+    S.target = 0; S.ref80 = true;
+    S.probe = track(t, [[0, PARK], [2.4, p + 7], [3.4, p - 5], [4.3, p + 2], [5, p]]);
+    if (t > 5.6 && t < 8.4) S.keys.push("gup");
+    S.gain = 38 + .5 * Math.min(16, t > 5.6 ? Math.floor((t - 5.6) / 2.8 * 16) + 1 : 0);
+    S.hint = t < 5.3 ? ["peak"] : t < 8.6 ? ["gain"] : ["ref"];
+    return S;
+  }},
+  { dur: 7.5, run(t) { // 3 MENU > MEAS > DAC, MODE DRAW
+    const S = preset(2);
+    if (at(t, .3)) S.keys.push("menu");
+    if (t >= .4) { S.menu = true; S.sel = 0; }
+    if (at(t, 1.1) || at(t, 2.5) || at(t, 3.9) || at(t, 5.2)) S.keys.push("ok");
+    if (at(t, 1.8) || at(t, 4.5)) S.keys.push("down");
+    if (at(t, 3.2)) S.keys.push("right");
+    if (t >= 1.15 && t < 2.5) S.dd = { tab: 0, items: DD_MEAS, sel: t >= 1.8 ? 1 : 0 };
+    if (t >= 2.5) { S.meas = "DAC"; S.sel = 1; }
+    if (t >= 3.2) S.sel = 2;
+    if (t >= 3.95 && t < 5.2) S.dd = { tab: 2, items: DD_MODE, sel: t >= 4.5 ? 1 : 0 };
+    if (t >= 5.2) S.mode = "DRAW";
+    S.hint = t < 1.1 ? ["menu"] : t < 3.2 ? ["meas"] : t < 3.9 ? ["toMode"] : t < 5.2 ? ["draw"] : ["drawOn"];
+    return S;
+  }},
+  { dur: 6.5, run(t) { // 4 point 1
+    const S = preset(3), h = HOLES[0];
+    S.target = 0;
+    if (at(t, .3)) S.keys.push("right");
+    if (t >= .3) S.sel = 3;
+    if (t >= .7) S.cursor = lerp(5, h.s, seg(t, 1, 3.4));
+    if (t > 1 && t < 3.4) S.keys.push("right");
+    if (at(t, 4)) S.keys.push("ok");
+    if (t >= 4) { S.points = 1; S.toast = "POINT 1 STORED"; }
+    S.hint = t < .7 ? ["curSel"] : t < 4 ? ["curMove"] : ["pt1"];
+    return S;
+  }},
+  { dur: 19.5, run(t) { // 5 holes 2..4
+    const S = preset(4);
+    S.lock = true;
+    const j = Math.min(2, Math.floor(t / 6.5)), u = t - j * 6.5, i = j + 1;
+    const prev = HOLES[i - 1], h = HOLES[i];
+    S.target = i;
+    S.points = 1 + j + (u >= 5.4 ? 1 : 0);
+    S.probe = track(u, [[0, prev.p], [1.6, h.p + 6], [2.3, h.p - 3], [2.9, h.p]]);
+    S.cursor = lerp(prev.s, h.s, seg(u, 3.1, 5));
+    if (u > 3.1 && u < 5) S.keys.push("right");
+    if (at(u, 5.4)) S.keys.push("ok");
+    if (u >= 5.4) S.toast = `POINT ${i + 1} STORED`;
+    S.hint = u < 3.1 ? ["next", i + 1] : u < 5.4 ? ["curMove"] : (j === 2 ? ["upTo10"] : ["ptN", i + 1]);
+    return S;
+  }},
+  { dur: 7, run(t) { // 6 MODE ON
+    const S = preset(5);
+    if (at(t, .3)) S.keys.push("left");
+    if (t >= .3) S.sel = 2;
+    if (at(t, .9) || at(t, 2.1)) S.keys.push("ok");
+    if (at(t, 1.5)) S.keys.push("down");
+    if (t >= .95 && t < 2.1) S.dd = { tab: 2, items: DD_MODE, sel: t >= 1.5 ? 2 : 1 };
+    if (t >= 2.1) { S.mode = "ON"; S.cursor = null; S.curve = lin(t, 2.3, 4.8); }
+    S.hint = t < 2.1 ? ["modeOn"] : ["curve"];
+    return S;
+  }},
+  { dur: 8, run(t) { // 7 save
+    const S = preset(6);
+    if (at(t, .4)) S.keys.push("mem");
+    if (at(t, 1.4) || at(t, 3.2)) S.keys.push("ok");
+    if (t >= .5) S.mem = { page: "list" };
+    if (t >= 1.45) S.mem = { page: "name", n: Math.floor(lin(t, 1.6, 2.8) * 9) };
+    if (t >= 3.25) S.mem = { page: "saving", p: lin(t, 3.3, 4.5) };
+    if (t >= 4.6) S.mem = { page: "saved" };
+    S.hint = t < 1.4 ? ["mem"] : t < 3.2 ? ["name"] : t < 4.6 ? ["saving"] : ["saved"];
+    return S;
+  }}
+];
+
+/* ---------------- build device ---------------- */
+const SVGNS = "http://www.w3.org/2000/svg";
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+// grid
+(() => {
+  const g = $("grid");
+  for (let i = 0; i <= 10; i++) {
+    el("line", { x1: GX + i * GW / 10, x2: GX + i * GW / 10, y1: GY, y2: GY + GH, class: i % 5 ? "" : "maj" }, g);
+    el("line", { y1: GY + i * GH / 10, y2: GY + i * GH / 10, x1: GX, x2: GX + GW, class: i % 5 ? "" : "maj" }, g);
+  }
+  for (let i = 0; i <= 10; i += 2) {
+    const tx = el("text", { x: GX - 6, y: ay(i * 10) + 4, class: "axl", "text-anchor": "end" }, $("axY"));
+    tx.textContent = i * 10;
+  }
+  for (let i = 0; i <= 10; i += 2) el("text", { x: GX + i * GW / 10, y: GY + GH + 16, class: "axl", "text-anchor": "middle" }, $("axX"));
+  $("ref80").setAttribute("y1", ay(80)); $("ref80").setAttribute("y2", ay(80));
+  $("ref80t").setAttribute("y", ay(80) - 5);
+})();
+// menu cells
+const CELL_NAMES = ["MEAS", "DAC", "MODE", "CURSOR"];
+const cells = CELL_NAMES.map((n, i) => {
+  const g = el("g", { class: "cell" }, $("cells"));
+  const x = 72 + i * 147;
+  el("rect", { x: x + 3, y: 97, width: 141, height: 46, rx: 4 }, g);
+  el("text", { x: x + 73.5, y: 116, class: "clbl" }, g).textContent = n;
+  const v = el("text", { x: x + 73.5, y: 136, class: "cval" }, g);
+  return { g, v };
+});
+// keypad
+const KEYDEF = [
+  { id: "menu", x: 715, y: 100, w: 112, h: 46, label: "MENU" },
+  { id: "mem", x: 839, y: 100, w: 112, h: 46, label: "MEM" },
+  { id: "gup", x: 715, y: 160, w: 112, h: 46, label: "dB +" },
+  { id: "gdn", x: 839, y: 160, w: 112, h: 46, label: "dB −" },
+  { id: "frz", x: 715, y: 222, w: 112, h: 38, label: "FREEZE", small: true },
+  { id: "home", x: 839, y: 222, w: 112, h: 38, label: "HOME", small: true },
+  { id: "up", x: 801, y: 304, w: 64, h: 56, arrow: 0 },
+  { id: "right", x: 879, y: 373, w: 56, h: 64, arrow: 90 },
+  { id: "down", x: 801, y: 450, w: 64, h: 56, arrow: 180 },
+  { id: "left", x: 731, y: 373, w: 56, h: 64, arrow: 270 },
+  { id: "ok", cx: 833, cy: 405, r: 42, label: "OK" }
+];
+const keyEl = {};
+KEYDEF.forEach(k => {
+  const g = el("g", { class: "key" + (k.id === "ok" ? " okk" : "") }, $("keypad"));
+  let cx, cy;
+  if (k.r) {
+    cx = k.cx; cy = k.cy;
+    el("circle", { class: "halo", cx, cy, r: k.r + 4 }, g);
+    el("circle", { class: "cap", cx, cy, r: k.r }, g);
+  } else {
+    cx = k.x + k.w / 2; cy = k.y + k.h / 2;
+    el("rect", { class: "halo", x: k.x - 3, y: k.y - 3, width: k.w + 6, height: k.h + 6, rx: 12 }, g);
+    el("rect", { class: "cap", x: k.x, y: k.y, width: k.w, height: k.h, rx: 10 }, g);
+  }
+  if (k.arrow != null) {
+    el("path", { class: "klbl", d: `M${cx} ${cy - 11} L${cx + 12} ${cy + 8} L${cx - 12} ${cy + 8} Z`, transform: `rotate(${k.arrow} ${cx} ${cy})` }, g);
+  } else {
+    const tx = el("text", { class: "klbl", x: cx, y: cy }, g);
+    tx.textContent = k.label;
+    if (k.small) tx.style.fontSize = "13px";
+    if (k.id === "ok") tx.style.fontSize = "22px";
+  }
+  keyEl[k.id] = g;
+});
+
+/* ---------------- build block ---------------- */
+const BX = 20, BY = 110, BS = 2; // px per mm
+const holeEls = HOLES.map((h, i) => {
+  const cx = BX + h.bx * BS, cy = BY + h.d * BS;
+  const glow = el("circle", { cx, cy, r: 9, fill: "#ffe14d", filter: "url(#hglow)", opacity: 0 }, $("holes"));
+  el("circle", { class: "hole", cx, cy, r: 3.5 }, $("holes"));
+  const ring = el("circle", { class: "hring", cx, cy, r: 11 }, $("holes"));
+  const lbl = el("text", { class: "hlbl", x: cx, y: cy + 24 }, $("holes"));
+  return { glow, ring, lbl };
+});
+function labelHoles() {
+  HOLES.forEach((h, i) => holeEls[i].lbl.textContent = `${T[lang].hole} ${i + 1} · ${h.d} mm`);
+}
+
+/* ---------------- curve path ---------------- */
+function smoothPath(p) {
+  let d = `M${p[0][0]},${p[0][1]}`;
+  for (let i = 0; i < p.length - 1; i++) {
+    const p0 = p[i - 1] || p[i], p1 = p[i], p2 = p[i + 1], p3 = p[i + 2] || p2;
+    const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+    const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+    d += ` C${c1} ${c2} ${p2}`;
+  }
+  return d;
+}
+const curveEl = $("curve");
+curveEl.setAttribute("d", smoothPath(HOLES.map(h => [sx(h.s, 100), ay(h.A)])));
+const curveLen = curveEl.getTotalLength();
+curveEl.style.strokeDasharray = curveLen;
+
+/* ---------------- render ---------------- */
+const cache = {};
+function setHTML(id, html) { if (cache[id] !== html) { cache[id] = html; $(id).innerHTML = html; } }
+function setText(id, s) { const e = $(id); if (e.textContent !== s) e.textContent = s; }
+const fmt1 = v => lang === "fr" ? v.toFixed(1).replace(".", ",") : v.toFixed(1);
+
+function render(S) {
+  const range = S.cal.range;
+  // keys
+  for (const id in keyEl) keyEl[id].classList.toggle("pressed", S.keys.includes(id));
+  // menu bar
+  const vals = [S.meas, S.meas === "DAC" ? `PT ${S.points}/10` : "—", S.mode, S.cursor != null ? S.cursor.toFixed(1) + " mm" : "—"];
+  cells.forEach((c, i) => {
+    c.g.classList.toggle("active", S.menu);
+    c.g.classList.toggle("sel", S.menu && S.sel === i);
+    c.v.textContent = vals[i];
+    if (i === 2) c.v.setAttribute("class", "cval m-" + S.mode);
+  });
+  // x axis labels
+  [...$("axX").children].forEach((tx, i) => tx.textContent = Math.round(range * i / 5));
+  // trace
+  const E = echoes(S), g = Math.pow(10, (S.gain - REF_GAIN) / 20);
+  let d = "";
+  for (let k = 0; k <= GW * 2; k++) {
+    const px = k / 2, mm = px / GW * range;
+    let v = (Math.random() * 1.4 + (Math.random() < .015 ? Math.random() * 3 : 0)) * (.6 + .4 * g);
+    for (const e of E) {
+      if (e.a < .05) continue;
+      const dx = mm - e.s;
+      if (Math.abs(dx) > 4) continue;
+      v += e.a * Math.exp(-dx * dx / .8) * Math.abs(Math.cos(Math.PI * dx / .5));
+    }
+    d += (k ? "L" : "M") + (GX + px).toFixed(1) + " " + ay(Math.min(v, 101)).toFixed(1);
+  }
+  $("trace").setAttribute("d", d);
+  // 80 % line
+  $("ref80").setAttribute("opacity", S.ref80 ? 1 : 0);
+  $("ref80t").setAttribute("opacity", S.ref80 ? 1 : 0);
+  // recorded points
+  let ph = "";
+  for (let i = 0; i < S.points; i++) {
+    const x = sx(HOLES[i].s, range), y = ay(HOLES[i].A);
+    ph += `<rect class="pt" x="${x - 5}" y="${y - 5}" width="10" height="10" transform="rotate(45 ${x} ${y})"/>`;
+    if (S.mode !== "ON") ph += `<line x1="${x}" x2="${x}" y1="${y + 8}" y2="${GY + GH}" stroke="#ff3b6b" stroke-opacity=".35" stroke-dasharray="2 4"/>`;
+  }
+  setHTML("pts", ph);
+  // curve
+  curveEl.setAttribute("opacity", S.curve > 0 ? 1 : 0);
+  curveEl.style.strokeDashoffset = curveLen * (1 - S.curve);
+  // cursor
+  if (S.cursor != null) {
+    const x = sx(S.cursor, range);
+    let amp = 0;
+    E.forEach(e => { amp = Math.max(amp, e.a * Math.exp(-Math.pow((S.cursor - e.s) / .9, 2))); });
+    $("cursor").setAttribute("opacity", 1);
+    $("curL").setAttribute("x1", x); $("curL").setAttribute("x2", x);
+    $("curM").setAttribute("d", `M${x - 7} ${GY} L${x + 7} ${GY} L${x} ${GY + 10} Z`);
+    const bx = x + 124 > GX + GW ? x - 126 : x + 8;
+    $("curBox").setAttribute("x", bx);
+    $("curT").setAttribute("x", bx + 8);
+    setText("curT", `${S.cursor.toFixed(1)}mm ${Math.round(amp)}%`);
+  } else $("cursor").setAttribute("opacity", 0);
+  // toast
+  $("toast").setAttribute("opacity", S.toast ? 1 : 0);
+  if (S.toast) setText("toastT", "✓ " + S.toast);
+  // dropdown
+  if (S.dd) {
+    const x = 72 + S.dd.tab * 147 + 8, w = 131;
+    let h = `<rect x="${x}" y="146" width="${w}" height="${S.dd.items.length * 30 + 8}" rx="5" class="ov"/>`;
+    S.dd.items.forEach((it, i) => {
+      const y = 150 + i * 30;
+      if (i === S.dd.sel) h += `<rect x="${x + 4}" y="${y}" width="${w - 8}" height="26" rx="3" class="ovs"/>`;
+      h += `<text x="${x + w / 2}" y="${y + 18}" text-anchor="middle" class="ovi${i === S.dd.sel ? " sel" : ""}">${it}</text>`;
+    });
+    setHTML("dropdown", h);
+  } else setHTML("dropdown", "");
+  // overlays
+  let ov = "";
+  if (S.calOv) {
+    const c = S.cal, rows = [["RANGE", Math.round(c.range) + " mm"], ["VELOCITY", Math.round(c.vel) + " m/s"], ["ZERO", c.zero.toFixed(2) + " µs"], ["ANGLE", c.angle.toFixed(1) + "°"]];
+    ov += `<rect x="318" y="182" width="300" height="214" rx="8" class="ov"/><text x="334" y="208" class="ovt">CALIBRATION</text>`;
+    rows.forEach(([l, v], i) => {
+      const y = 222 + i * 34, s = S.calOv.field === i;
+      if (s) ov += `<rect x="326" y="${y}" width="284" height="28" rx="4" class="ovs"/>`;
+      ov += `<text x="336" y="${y + 19}" class="ovi${s ? " sel" : ""}">${l}</text><text x="600" y="${y + 19}" text-anchor="end" class="ovi${s ? " sel" : ""}">${v}</text>`;
+    });
+    if (S.calOv.done) ov += `<text x="468" y="384" text-anchor="middle" class="ovt">✓ CALIBRATED</text>`;
+  }
+  if (S.mem) {
+    const m = S.mem;
+    ov += `<rect x="248" y="200" width="330" height="180" rx="8" class="ov"/><text x="264" y="226" class="ovt">MEMORY</text>`;
+    if (m.page === "list") {
+      ["SAVE SETUP", "RECALL SETUP", "DELETE SETUP"].forEach((it, i) => {
+        const y = 240 + i * 34;
+        if (!i) ov += `<rect x="258" y="${y}" width="310" height="28" rx="4" class="ovs"/>`;
+        ov += `<text x="272" y="${y + 19}" class="ovi${i ? "" : " sel"}">${it}</text>`;
+      });
+    } else if (m.page === "name") {
+      const name = "DAC_SDH60".slice(0, m.n);
+      ov += `<text x="264" y="258" class="ovi">SAVE SETUP · SLOT 01</text>
+        <rect x="264" y="272" width="298" height="34" rx="4" fill="#06120e" stroke="#2f7a5d"/>
+        <text x="276" y="295" class="ovi">${name}<tspan class="blink" fill="#ffb020">_</tspan></text>
+        <text x="264" y="350" class="ovi" fill-opacity=".7">OK = SAVE</text>`;
+    } else if (m.page === "saving") {
+      ov += `<text x="264" y="268" class="ovi">SAVING SETUP 01…</text>
+        <rect x="264" y="290" width="298" height="18" rx="4" fill="#06120e" stroke="#2f7a5d"/>
+        <rect x="266" y="292" width="${(294 * m.p).toFixed(1)}" height="14" rx="3" fill="#3ddc84"/>`;
+    } else {
+      ov += `<text x="413" y="282" text-anchor="middle" class="ovt" font-size="18">✓ SETUP 01 SAVED</text>
+        <text x="413" y="314" text-anchor="middle" class="ovi">DAC_SDH60 · 4 PTS · 46.0 dB</text>`;
+    }
+  }
+  setHTML("overlay", ov);
+  // status bar
+  setText("sGain", `G ${S.gain.toFixed(1)} dB`);
+  $("lock").setAttribute("opacity", S.lock ? 1 : 0);
+  setText("sRange", `R ${Math.round(range)}`);
+  setText("sVel", `V ${Math.round(S.cal.vel)}`);
+  setText("sAng", `ANG ${S.cal.angle.toFixed(0)}°`);
+  setText("sPts", S.meas === "DAC" ? `DAC ${S.mode}` : "");
+
+  // block view
+  const X = BX + S.probe * BS;
+  $("probe").setAttribute("transform", `translate(${X.toFixed(1)},${BY})`);
+  const L = 120; // block height in px
+  const ex = th => X + L * Math.tan(th);
+  $("beam").setAttribute("points", `${X},${BY} ${ex(ANG - .07)},${BY + L} ${ex(ANG + .07)},${BY + L}`);
+  $("beamC").setAttribute("x1", X); $("beamC").setAttribute("y1", BY);
+  $("beamC").setAttribute("x2", ex(ANG)); $("beamC").setAttribute("y2", BY + L);
+  HOLES.forEach((h, i) => {
+    holeEls[i].glow.setAttribute("opacity", (E[i].w * .9).toFixed(2));
+    const cls = i < S.points ? "hring done" : i === S.target ? "hring target" : "hring";
+    if (holeEls[i].ring.getAttribute("class") !== cls) holeEls[i].ring.setAttribute("class", cls);
+  });
+  // readout
+  let best = null;
+  E.forEach(e => { if (!best || e.a > best.a) best = e; });
+  setText("rP", `${fmt1(S.probe)} mm`);
+  setText("rE", best.a < 3 ? T[lang].none : `${Math.round(Math.min(best.a, 100))} % @ ${fmt1(best.s)}`);
+  setText("rG", `${fmt1(S.gain)} dB`);
+  // hint
+  if (S.hint) {
+    let s = T[lang].h[S.hint[0]];
+    if (S.hint[1] != null) s = s.replace("{n}", S.hint[1]);
+    setText("hint", s);
+  }
+}
+
+/* ---------------- UI ---------------- */
+let step = 0, t = 0, playing = true, last = null;
+const dotsEl = $("dots");
+STEPS.forEach((_, i) => {
+  const b = document.createElement("button");
+  b.textContent = i + 1;
+  b.addEventListener("click", () => go(i));
+  dotsEl.appendChild(b);
+});
+function updateCaption() {
+  const L = T[lang], st = L.steps[step];
+  setText("capNo", L.step(step + 1, STEPS.length));
+  setText("capTitle", st[0]);
+  setText("capText", st[1]);
+  [...dotsEl.children].forEach((b, i) => {
+    b.className = i === step ? "on" : i < step ? "done" : "";
+    b.title = L.steps[i][0];
+  });
+}
+function updateLang() {
+  const L = T[lang];
+  document.documentElement.lang = lang;
+  $("lEN").classList.toggle("on", lang === "en");
+  $("lFR").classList.toggle("on", lang === "fr");
+  setText("hTitle", L.title); setText("hSub", L.sub);
+  document.title = `${L.title} – Sonatest Sitescan D-10`;
+  setText("bTitle", L.block); setText("lgT", L.cur); setText("lgD", L.done);
+  setText("rPL", L.probe); setText("rEL", L.echo); setText("rGL", L.gain);
+  setText("prev", L.prev); setText("next", L.next); setText("kbd", L.kbd);
+  setText("play", playing ? L.pause : L.play);
+  labelHoles();
+  updateCaption();
+}
+function go(i) { step = (i + STEPS.length) % STEPS.length; t = 0; updateCaption(); }
+function togglePlay() { playing = !playing; setText("play", playing ? T[lang].pause : T[lang].play); }
+$("prev").addEventListener("click", () => go(step - 1));
+$("next").addEventListener("click", () => go(step + 1));
+$("play").addEventListener("click", togglePlay);
+$("lEN").addEventListener("click", () => { lang = "en"; updateLang(); });
+$("lFR").addEventListener("click", () => { lang = "fr"; updateLang(); });
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowRight") go(step + 1);
+  else if (e.key === "ArrowLeft") go(step - 1);
+  else if (e.key === " ") { e.preventDefault(); togglePlay(); }
+});
+
+function frame(ts) {
+  if (last == null) last = ts;
+  const dt = Math.min(.1, (ts - last) / 1000);
+  last = ts;
+  if (playing) {
+    t += dt;
+    if (t >= STEPS[step].dur) go(step + 1); // after step 7 this wraps to step 1: the lesson loops
+  }
+  render(STEPS[step].run(t));
+  $("prog").style.width = (t / STEPS[step].dur * 100).toFixed(2) + "%";
+  requestAnimationFrame(frame);
+}
+// seek hook (used for testing): __dacSeek(stepIndex, seconds)
+window.__dacSeek = (s, tt) => { go(s); t = tt; };
+updateLang();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
