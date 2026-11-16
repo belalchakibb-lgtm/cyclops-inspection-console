@@ -14,7 +14,15 @@ export const SOURCE_TYPES = {
   AQCS_DRAFT: { en: 'AQCS document (draft, not approved)', fr: 'Document AQCS (projet, non approuvé)' },
   CODE_REF: { en: 'Code / standard reference (scope only, not code text)', fr: 'Référence code / norme (portée uniquement, pas le texte)' },
   CYCLOPS: { en: 'CYCLOPS built-in guidance (general, verify)', fr: 'Guide intégré CYCLOPS (général, à vérifier)' },
-  STUDY: { en: 'ASME/API study guide (learning summary, verify the code edition)', fr: 'Guide d’étude ASME/API (résumé pédagogique, édition du code à vérifier)' }
+  STUDY: { en: 'ASME/API study guide (learning summary, verify the code edition)', fr: 'Guide d’étude ASME/API (résumé pédagogique, édition du code à vérifier)' },
+  COURSE: { en: 'CYCLOPS professional course (training summary, status shown)', fr: 'Cours professionnel CYCLOPS (résumé de formation, statut indiqué)' }
+};
+
+// The professional courses (cyclops-procourse*.js), read from the same files the courses use.
+const COURSE_FILES = ['cyclops-procourse.js', 'cyclops-procourse-utrt.js', 'cyclops-procourse-equip.js', 'cyclops-procourse-surf.js'];
+const COURSE_STATUS = {
+  checked: { en: 'cross-checked with public sources, not the paid code text', fr: 'recoupé avec des sources publiques, pas le texte payant du code' },
+  verify: { en: 'from training knowledge, to verify in the code', fr: 'issu de connaissances de formation, à vérifier dans le code' }
 };
 
 const STOP = new Set('the a an of to in on for and or is are be do does how what which when why with at by from it this that i you my me can should must about les des du de la le un une et ou est sont que qui quoi quel quelle quand comment pourquoi avec pour dans sur au aux ce cette mon ma mes il elle je tu on ne pas plus faut doit dois peut'.split(' '));
@@ -44,6 +52,16 @@ function loadBrowserData(code, filename) {
   const window = {};
   vm.runInNewContext(code, { window, console: { log() {}, warn() {}, error() {} } }, { filename, timeout: 2000 });
   return window;
+}
+
+// Runs the course files one after another in one sandbox, as the browser does, and returns their courses.
+async function loadProCourses(read) {
+  const window = {};
+  const context = vm.createContext({ window, console: { log() {}, warn() {}, error() {} } });
+  for (const file of COURSE_FILES) {
+    try { vm.runInContext(await read(file), context, { filename: file, timeout: 2000 }); } catch (error) { console.warn(`Course file ${file} not loaded into the knowledge base: ${error.message}`); }
+  }
+  return (window.CYPRO && window.CYPRO.COURSES) || {};
 }
 
 function extractAsmeIndex(code3d) {
@@ -84,6 +102,7 @@ export async function buildKnowledgeBase(root) {
   const asme = extractAsmeIndex(await read('cyclops3D.js'));
   const study = loadBrowserData(await read('cyclops-study.js'), 'cyclops-study.js').CYSTUDY || { lessons: [] };
   const documents = await loadDocuments(root);
+  const proCourses = await loadProCourses(read);
   const chunks = [];
   const add = (c) => chunks.push({ ...c, id: `${c.type}:${c.method}:${chunks.length}` });
 
@@ -119,6 +138,25 @@ export async function buildKnowledgeBase(root) {
       const base = { type: 'STUDY', method: 'OTH', lang, source: study.source, revision: lang === 'fr' ? 'résumé pédagogique' : 'learning summary', section: `${lesson.code} — ${lesson.title[i]}` };
       lesson.say.forEach((p) => add({ ...base, text: p[i] }));
       add({ ...base, text: lesson.points.map((p) => p[i]).join(' ') });
+    });
+  }
+  // Professional courses: one passage per narrated point, and one per code table carrying its own status and source.
+  const pick = (v, i) => (Array.isArray(v) ? String(v[i] == null ? v[0] : v[i]) : String(v == null ? '' : v));
+  for (const method of Object.keys(proCourses)) {
+    const course = proCourses[method];
+    (course.slides || []).forEach((slide) => {
+      if (slide.exam || !slide.t) return;
+      ['en', 'fr'].forEach((lang, i) => {
+        const base = { type: 'COURSE', method, lang, source: pick(course.name, i), section: pick(slide.t, i), revision: lang === 'fr' ? 'résumé de formation' : 'training summary' };
+        (slide.b || []).forEach((point) => add({ ...base, text: pick(point, i) }));
+        const tb = slide.table;
+        if (tb && Array.isArray(tb.rows)) {
+          const status = COURSE_STATUS[tb.st] || COURSE_STATUS.verify;
+          const head = (tb.head || []).map((h) => pick(h, i)).join(' | ');
+          const rows = tb.rows.map((r) => r.map((cell) => pick(cell, i)).join(' | ')).join('\n');
+          add({ ...base, revision: `${status[lang]} — ${tb.src || ''}`.trim(), text: `${head}\n${rows}` });
+        }
+      });
     });
   }
   for (const doc of documents) {

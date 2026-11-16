@@ -263,6 +263,17 @@ test('correct production settings still give the normal sign-in, with no setup p
   });
 });
 
+test('the AI knowledge base contains all eight professional courses, with each table keeping its status', async () => {
+  const { buildKnowledgeBase, retrieve } = await import('../kb.mjs');
+  const kb = await buildKnowledgeBase(root);
+  const course = kb.chunks.filter((c) => c.type === 'COURSE');
+  assert.deepEqual([...new Set(course.map((c) => c.method))].sort(), ['APE', 'APL', 'APVG', 'MT', 'PT', 'RT', 'UT', 'VT']);
+  assert.ok(course.some((c) => c.lang === 'fr') && course.some((c) => c.lang === 'en'));
+  assert.ok(course.some((c) => c.revision.startsWith('cross-checked')) && course.some((c) => c.revision.startsWith('from training knowledge')));
+  const hit = retrieve(kb, 'What reference block thickness do I need for a 32 mm butt weld under ASME?', { lang: 'en', limit: 3 });
+  assert.ok(hit.some((c) => c.type === 'COURSE' && /38 mm/.test(c.text) && c.revision.startsWith('cross-checked')));
+});
+
 test('outside production a wrong setting still stops the server at once', async () => {
   const child = spawn(process.execPath, ['server.mjs'], { cwd: root, env: { PATH: process.env.PATH, PORT: '47411', HOST: '127.0.0.1', AUDIT_LOG: 'off', CYCLOPS_USERS: 'admin:tooshort:admin', SESSION_SECRET: 'x'.repeat(40) } });
   child.stderr.resume(); child.stdout.resume();
