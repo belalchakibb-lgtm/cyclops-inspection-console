@@ -1,0 +1,6 @@
+std = "roblox"
+
+[lints]
+# Services/controllers intentionally keep some parameters for a uniform interface.
+unused_variable = "allow"
+shadowing = "allow"
