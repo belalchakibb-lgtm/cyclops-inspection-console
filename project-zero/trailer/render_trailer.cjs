@@ -7,7 +7,7 @@ const fs = require('fs'), path = require('path');
   const frames = JSON.parse(fs.readFileSync(tlPath, 'utf8')); // [{i, shot, u, t}]
   fs.mkdirSync(out, { recursive: true });
   const b = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-  const p = await b.newPage({ viewport: { width: 720, height: 1280 } });
+  const p = await b.newPage({ viewport: { width: 1080, height: 1920 } });
   p.on('pageerror', e => console.log('PAGEERR', e.message));
   await p.goto(url);
   await p.waitForFunction('window.ready === true', null, { timeout: 180000 });
