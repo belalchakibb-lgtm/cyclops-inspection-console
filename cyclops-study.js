@@ -233,7 +233,7 @@ html.field .cyst-msg.t { background: #eef5ff; } html.field .cyst-msg.u { backgro
     if (!st.voice || typeof speechSynthesis === 'undefined') return;
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text), want = L('en', 'fr');
-    const v = speechSynthesis.getVoices().find((x) => x.lang && x.lang.toLowerCase().startsWith(want));
+    const v = window.CYVOICE ? window.CYVOICE.pick(want) : speechSynthesis.getVoices().find((x) => x.lang && x.lang.toLowerCase().startsWith(want));
     if (v) u.voice = v; u.lang = L('en-US', 'fr-FR'); u.rate = 0.98;
     u.onstart = () => { st.talkUntil = performance.now() + 60000; }; u.onend = () => { st.talkUntil = performance.now() + 200; };
     speechSynthesis.speak(u);

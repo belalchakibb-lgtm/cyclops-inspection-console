@@ -876,6 +876,11 @@ Sauvegarde des fichiers d'origine : _backup-2026-11-03/
 - Base de connaissances : nouveau type de source « Guide d'étude ASME/API » (résumé pédagogique, édition à vérifier), aussi utilisable par l'assistant principal. Nouveau test serveur (8 tests).
 - Constat : le modèle NVIDIA actuel (llama-3.2-90b-vision) est trop lent sur l'offre gratuite pour les réponses longues (délai dépassé) ; à revoir (autre modèle ou clé Anthropic).
 
+### Voix au choix et tests automatiques sur GitHub
+- Nouveau cyclops-voice.js : choix de voix commun aux vidéos 3D, aux diapositives, au guide vidéo et au guide d'étude. Les voix naturelles de l'appareil passent en premier (★) et le choix est mémorisé par langue. Sélecteur de voix dans la barre des vidéos 3D. Gratuit : utilise les voix de l'appareil (Microsoft Edge propose des voix « Natural »). La clé NVIDIA n'offre aucun modèle vocal ; une voix de studio demanderait un service payant.
+- Nouveau .github/workflows/tests.yml : vérification de syntaxe et tests serveur à chaque envoi sur GitHub.
+- Testé : liste des voix, choix mémorisé après réouverture, narration avec la voix choisie.
+
 ### Assistant IA : cause en ligne et cours professionnels ajoutés
 - Cause en ligne : Render n'a aucune clé d'IA (/api/health : provider none), donc l'assistant répond « clé non configurée ». La clé NVIDIA testée depuis ce PC fonctionne, et les 3 modèles configurés répondent (1 à 8 s). À ajouter par l'utilisateur dans Render : NVIDIA_API_KEY.
 - kb.mjs : les 8 cours professionnels entrent dans la base de connaissances (type COURSE, 638 passages EN/FR) : un passage par point narré, un par tableau avec son statut (recoupé ou à vérifier) et sa source. Avant, l'IA répondait « information non disponible » à des questions traitées dans les cours.

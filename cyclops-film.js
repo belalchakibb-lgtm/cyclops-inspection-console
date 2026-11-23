@@ -39,6 +39,7 @@ dialog.cyfilm::backdrop { background: #000; }
 .cyf-bar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 7px 12px; background: #0a1128; border-top: 1px solid #22305c; }
 .cyf-bar button { height: 34px; min-width: 38px; padding: 0 10px; border-radius: 8px; border: 1px solid #2c3d70; background: #17244a; color: #e8f0ff; font: inherit; cursor: pointer; }
 .cyf-bar button.main { background: #2b7fd8; border-color: #2b7fd8; font-weight: 700; }
+.cyf-vsel { height: 34px; max-width: 210px; border-radius: 8px; border: 1px solid #2c3d70; background: #17244a; color: #e8f0ff; font: inherit; font-size: 13px; padding: 0 6px; }
 .cyf-line { flex: 1 1 240px; display: flex; gap: 2px; height: 16px; align-items: center; min-width: 160px; }
 .cyf-line button { flex: 1; min-width: 0; height: 8px; padding: 0; border-radius: 2px; border: 0; background: rgba(255,255,255,.18); position: relative; } .cyf-line button:hover { height: 14px; }
 .cyf-line button.seen { background: #2b7fd8; } .cyf-line button.on { background: #7cc4ff; height: 14px; }
@@ -199,6 +200,18 @@ dialog.cyfilm::backdrop { background: #000; }
     q('[data-f-play]').textContent = st.finished ? '↻ ' + L('Replay', 'Revoir') : st.playing ? '⏸ ' + L('Pause', 'Pause') : '▶ ' + L('Play', 'Lecture');
     q('[data-f-voice]').textContent = st.voice ? '🔊' : '🔇'; q('[data-f-rate]').textContent = st.rate + '×';
   }
+  // the device's voices for this language, most natural first; the choice is shared with the rest of CYCLOPS
+  function fillVoices() {
+    const sel = st.dlg && q('[data-f-vpick]'); if (!sel || !window.CYVOICE) return;
+    const code = L('en', 'fr'), list = window.CYVOICE.list(code), cur = window.CYVOICE.pick(code);
+    sel.hidden = list.length < 2;
+    sel.innerHTML = list.map((v) => `<option value="${esc(v.name)}"${cur && v.name === cur.name ? ' selected' : ''}>${esc(window.CYVOICE.label(v))}</option>`).join('');
+  }
+  function onVoicePick(e) {
+    if (!e.target.matches('[data-f-vpick]') || !window.CYVOICE) return;
+    window.CYVOICE.choose(L('en', 'fr'), e.target.value);
+    if (st.playing && !st.intro) { silence(); narrate(); } // continue the current sentence with the new voice
+  }
   function goto(i, autoplay) {
     silence(); st.i = clamp(i, 0, st.slides.length - 1); st.b = 0; st.sent = 0; st.t = 0; st.bt = 0; st.hold = 3; st.spoke = false; st.intro = false; st.finished = false; q('.cyf-q').classList.remove('on'); q('.cyf-card').style.pointerEvents = '';
     buildScene(); drawHud(); caption(); showFacts();
@@ -214,7 +227,7 @@ dialog.cyfilm::backdrop { background: #000; }
     const S = synth(), my = st.tok, words = text.split(/\s+/).length, voices = S && st.voice ? S.getVoices().filter((x) => x.lang && x.lang.toLowerCase().startsWith(L('en', 'fr'))) : [];
     let fired = false; const go = () => { if (fired || my !== st.tok) return; fired = true; clearTimeout(st.wd); next(); };
     if (voices.length) {
-      const u = new SpeechSynthesisUtterance(text); u.lang = L('en-US', 'fr-FR'); u.voice = voices.find((x) => /natural|online|neural|google/i.test(x.name)) || voices[0]; u.rate = st.rate; u.onend = go; u.onerror = go; S.speak(u);
+      const u = new SpeechSynthesisUtterance(text); u.lang = L('en-US', 'fr-FR'); u.voice = (window.CYVOICE && window.CYVOICE.pick(L('en', 'fr'))) || voices.find((x) => /natural|online|neural|google/i.test(x.name)) || voices[0]; u.rate = st.rate; u.onend = go; u.onerror = go; S.speak(u);
       st.wd = setTimeout(go, (words / (1.2 * st.rate) + 6) * 1000); // some voices never fire onend
     } else st.wd = setTimeout(go, Math.max((minSec || 1.8) * 1000, words / (2.6 * st.rate) * 1000));
   }
@@ -286,7 +299,7 @@ dialog.cyfilm::backdrop { background: #000; }
     if ('fSkip' in d) { const s = st.slides[st.i]; s.__answered = true; q('.cyf-q').classList.remove('on'); silence(); if (st.playing) { if (st.i < st.slides.length - 1) goto(st.i + 1); else finish(); } return; }
   }
   function onKey(e) {
-    if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+    if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
     if (e.key === ' ') { e.preventDefault(); togglePlay(); } else if (e.key === 'ArrowRight') goto(st.i + 1); else if (e.key === 'ArrowLeft') goto(st.i - 1);
   }
   async function play(course, index, opts) {
@@ -296,9 +309,10 @@ dialog.cyfilm::backdrop { background: #000; }
     st.slides = c.slides.map((s, k) => { s.__idx = k; s.__answered = false; return s; }).filter((s) => !s.exam);
     const dlg = document.createElement('dialog'); dlg.className = 'cyfilm'; st.dlg = dlg;
     dlg.innerHTML = `<div class="cyf-wrap"><div class="cyf-stage"><div class="cyf-top"></div><button type="button" class="cyf-close" data-f-close aria-label="${L('Close the video', 'Fermer la vidéo')}">✕</button><div class="cyf-facts"></div><div class="cyf-card"></div><div class="cyf-cap"></div><div class="cyf-q"></div></div><aside class="cyf-panel"></aside>
-<div class="cyf-bar"><button type="button" data-f-nav="-1" aria-label="${L('Previous', 'Précédent')}">⏮</button><button type="button" class="main" data-f-play></button><button type="button" data-f-nav="1" aria-label="${L('Next', 'Suivant')}">⏭</button><button type="button" data-f-voice aria-label="${L('Voice', 'Voix')}"></button><button type="button" data-f-rate aria-label="${L('Speed', 'Vitesse')}"></button><div class="cyf-line"></div><span class="cyf-note">${L('Illustrative 3D, not to scale · training content, not a certification', '3D illustrative, pas à l’échelle · contenu de formation, pas une certification')}</span></div></div>`;
+<div class="cyf-bar"><button type="button" data-f-nav="-1" aria-label="${L('Previous', 'Précédent')}">⏮</button><button type="button" class="main" data-f-play></button><button type="button" data-f-nav="1" aria-label="${L('Next', 'Suivant')}">⏭</button><button type="button" data-f-voice aria-label="${L('Voice', 'Voix')}"></button><button type="button" data-f-rate aria-label="${L('Speed', 'Vitesse')}"></button><select class="cyf-vsel" data-f-vpick aria-label="${L('Choose the voice', 'Choisir la voix')}" title="${L('Choose the voice (★ = most natural)', 'Choisir la voix (★ = la plus naturelle)')}"></select><div class="cyf-line"></div><span class="cyf-note">${L('Illustrative 3D, not to scale · training content, not a certification', '3D illustrative, pas à l’échelle · contenu de formation, pas une certification')}</span></div></div>`;
     document.body.appendChild(dlg); dlg.showModal();
-    dlg.addEventListener('click', onClick); dlg.addEventListener('keydown', onKey);
+    dlg.addEventListener('click', onClick); dlg.addEventListener('keydown', onKey); dlg.addEventListener('change', onVoicePick);
+    fillVoices(); const S0 = synth(); if (S0 && S0.addEventListener) { S0.addEventListener('voiceschanged', fillVoices); dlg.addEventListener('close', () => S0.removeEventListener('voiceschanged', fillVoices)); }
     dlg.addEventListener('close', () => {
       silence(); cancelAnimationFrame(st.raf); st.raf = 0; if (st.kit) { st.kit.dispose(); st.kit = null; } if (st.resize) st.resize.disconnect();
       const i = st.slides[st.i] ? st.slides[st.i].__idx : 0, exam = st.toExam ? c.slides.findIndex((x) => x.exam) : -1; dlg.remove(); st.dlg = null;

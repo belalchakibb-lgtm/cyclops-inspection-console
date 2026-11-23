@@ -1,0 +1,27 @@
+# Runs every syntax check and server test on each change pushed to GitHub, so a broken change is caught
+# before Render deploys it. Results: the green tick or red cross next to each commit, under the Actions tab.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci
+      - name: Syntax check of every script
+        run: npm run check
+      - name: Server tests
+        run: npm test

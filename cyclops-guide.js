@@ -155,6 +155,7 @@ ${st.started ? '' : `<div class="cygd-poster"><h2>${L('The complete guide to CYC
   /* ---------- narration ---------- */
   const synth = () => (typeof speechSynthesis !== 'undefined' ? speechSynthesis : null);
   function pickVoice() {
+    if (window.CYVOICE) return window.CYVOICE.pick(L('en', 'fr'));
     const s = synth(); if (!s) return null; const code = L('en', 'fr'), list = s.getVoices().filter((v) => v.lang && v.lang.toLowerCase().startsWith(code));
     return list.find((v) => /natural|online|neural/i.test(v.name)) || list.find((v) => /google/i.test(v.name)) || list[0] || null;
   }

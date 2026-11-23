@@ -191,7 +191,7 @@ ${r ? `<p class="cysurf-score"><b>${r.score}/${s.exam.length} (${r.pct} %)</b> â
     }
     paint(); const text = T2(s.b[st.b]), S = synth(), next = () => { if (my === st.tok) { st.b++; say(); } };
     const v = S && st.voice && S.getVoices().filter((x) => x.lang && x.lang.toLowerCase().startsWith(L('en', 'fr')));
-    if (v && v.length) { const u = new SpeechSynthesisUtterance(text); u.lang = L('en-US', 'fr-FR'); u.voice = v.find((x) => /natural|online|neural|google/i.test(x.name)) || v[0]; u.onend = next; u.onerror = next; S.speak(u); }
+    if (v && v.length) { const u = new SpeechSynthesisUtterance(text); u.lang = L('en-US', 'fr-FR'); u.voice = (window.CYVOICE && window.CYVOICE.pick(L('en', 'fr'))) || v.find((x) => /natural|online|neural|google/i.test(x.name)) || v[0]; u.onend = next; u.onerror = next; S.speak(u); }
     else st.timer = setTimeout(next, Math.max(2500, text.split(/\s+/).length / 2.5 * 1000));
   }
   // the same slides, played as a narrated 3D film (cyclops-film.js)
