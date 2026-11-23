@@ -32,6 +32,7 @@ async function login(username = 'tester', password = 'a-long-test-password') {
 // one shared inspector session for the assistant tests (sign-in attempts are rate limited per minute)
 let inspectorCookie;
 const asInspector = async () => (inspectorCookie ||= (await login()).cookie);
+let adminCookie; // signed in before the rate-limit test uses up the sign-in attempts
 
 before(async () => {
   fakeAi = createServer(async (req, res) => {
@@ -51,6 +52,7 @@ before(async () => {
     NVIDIA_MODELS: 'broken/model,good/model',
     AI_BASE_URL: `http://127.0.0.1:${FAKE_AI_PORT}/v1/chat/completions`
   });
+  adminCookie = (await login('boss', 'another-long-password')).cookie;
 });
 after(() => { server && server.kill(); fakeAi && fakeAi.close(); });
 
@@ -182,10 +184,8 @@ test('coach mode and learner context: cleaned, length-limited data, never new in
 });
 
 test('only an admin can reload the knowledge base', async () => {
-  const user = await login();
-  assert.equal((await fetch(`${base}/api/kb/reload`, { method: 'POST', headers: { cookie: user.cookie } })).status, 403);
-  const admin = await login('boss', 'another-long-password');
-  assert.equal((await fetch(`${base}/api/kb/reload`, { method: 'POST', headers: { cookie: admin.cookie } })).status, 200);
+  assert.equal((await fetch(`${base}/api/kb/reload`, { method: 'POST', headers: { cookie: await asInspector() } })).status, 403);
+  assert.equal((await fetch(`${base}/api/kb/reload`, { method: 'POST', headers: { cookie: adminCookie } })).status, 200);
 });
 
 test('sign-in attempts are rate limited separately', async () => {
@@ -272,6 +272,72 @@ test('the AI knowledge base contains all eight professional courses, with each t
   assert.ok(course.some((c) => c.revision.startsWith('cross-checked')) && course.some((c) => c.revision.startsWith('from training knowledge')));
   const hit = retrieve(kb, 'What reference block thickness do I need for a 32 mm butt weld under ASME?', { lang: 'en', limit: 3 });
   assert.ok(hit.some((c) => c.type === 'COURSE' && /38 mm/.test(c.text) && c.revision.startsWith('cross-checked')));
+});
+
+test('training records: the database queries work on a real Postgres engine', async () => {
+  const { PGlite } = await import('@electric-sql/pglite');
+  const { sqlStore, cleanEvent } = await import('../training-store.mjs');
+  const db = new PGlite();
+  try {
+    const store = sqlStore((text, params) => db.query(text, params));
+    await store.init();
+    await store.init(); // safe to run again at every server start
+    const ev = (o) => cleanEvent(o);
+    await store.record('amina', ev({ kind: 'progress', course: 'UT', seen: 5, total: 19 }));
+    await store.record('amina', ev({ kind: 'progress', course: 'UT', seen: 12, total: 19 }));
+    await store.record('amina', ev({ kind: 'exam', course: 'UT', score: 67 }));
+    await new Promise((r) => setTimeout(r, 15));
+    await store.record('amina', ev({ kind: 'exam', course: 'UT', score: 92 }));
+    await store.record('amina', ev({ kind: 'video', course: 'UT' }));
+    await store.record('karim', ev({ kind: 'exam', course: 'PT', score: 75 }));
+    const rows = await store.summary();
+    assert.deepEqual(rows.map((r) => `${r.user}:${r.course}`), ['amina:UT', 'karim:PT']);
+    const ut = rows[0];
+    assert.equal(ut.seen, 12); assert.equal(ut.total, 19); assert.equal(ut.attempts, 2);
+    assert.equal(ut.best, 92); assert.equal(ut.last, 92); assert.equal(ut.video, true);
+    assert.equal(rows[1].best, 75); assert.equal(rows[1].video, false); assert.equal(rows[1].seen, null);
+    // values are passed as parameters, never pasted into the SQL
+    await store.record("x'); DROP TABLE cyclops_training; --", ev({ kind: 'video', course: 'VT' }));
+    assert.equal((await store.summary()).length, 3);
+  } finally { await db.close(); }
+});
+
+test('training records: invalid events are refused', async () => {
+  const { cleanEvent } = await import('../training-store.mjs');
+  for (const bad of [null, {}, { kind: 'exam', course: 'UT' }, { kind: 'exam', course: 'UT', score: 101 }, { kind: 'exam', course: 'XX', score: 50 }, { kind: 'hack', course: 'UT' }, { kind: 'progress', course: 'UT', seen: 3, total: 0 }, { kind: 'exam', course: 'UT', score: -1 }]) assert.equal(cleanEvent(bad), null, JSON.stringify(bad));
+  assert.equal(cleanEvent({ kind: 'progress', course: 'ut', seen: 30, total: 19 }).seen, 19);
+});
+
+test('training dashboard: each person records their own events; only supervisors and admins can read everyone', async () => {
+  const port = 47420, url = `http://127.0.0.1:${port}`;
+  const child = spawn(process.execPath, ['server.mjs'], { cwd: root, env: { PATH: process.env.PATH, PORT: String(port), HOST: '127.0.0.1', AUDIT_LOG: 'off', TRAINING_STORE: 'memory', CYCLOPS_USERS: 'insp1:a-long-test-password:inspector,sup1:another-long-password:supervisor', SESSION_SECRET: 'y'.repeat(40) } });
+  let out = ''; child.stdout.on('data', (d) => { out += d; }); child.stderr.on('data', (d) => { out += d; });
+  const exited = new Promise((r) => child.on('exit', r));
+  try {
+    for (let i = 0; !out.includes('running at'); i++) { if (i > 100) throw new Error(out); await new Promise((r) => setTimeout(r, 100)); }
+    const signIn = async (username, password) => { const r = await fetch(`${url}/api/login`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: url }, body: JSON.stringify({ username, password }) }); return (r.headers.get('set-cookie') || '').split(';')[0]; };
+    const insp = await signIn('insp1', 'a-long-test-password'), sup = await signIn('sup1', 'another-long-password');
+    const post = (cookie, body, origin = url) => fetch(`${url}/api/training`, { method: 'POST', headers: { 'Content-Type': 'application/json', cookie, Origin: origin }, body: JSON.stringify(body) });
+    assert.equal((await post(insp, { kind: 'exam', course: 'MT', score: 88, user: 'sup1' })).status, 200); // a "user" field is ignored
+    assert.equal((await post(insp, { kind: 'exam', course: 'MT', score: 400 })).status, 400);
+    assert.equal((await post(insp, { kind: 'video', course: 'MT' }, 'https://evil.example')).status, 403);
+    assert.equal((await fetch(`${url}/api/training`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: url }, body: '{"kind":"video","course":"MT"}' })).status, 401);
+    assert.equal((await fetch(`${url}/api/training/summary`, { headers: { cookie: insp } })).status, 403);
+    assert.equal((await fetch(`${url}/api/training/summary`)).status, 401);
+    const s = await (await fetch(`${url}/api/training/summary`, { headers: { cookie: sup } })).json();
+    assert.equal(s.enabled, true);
+    assert.deepEqual(s.rows.map((r) => `${r.user}:${r.course}:${r.best}`), ['insp1:MT:88']);
+  } finally { child.kill(); await exited; }
+});
+
+test('without a database the app still works and the dashboard says it is not set up', async () => {
+  const cookie = adminCookie;
+  const r = await fetch(`${base}/api/training`, { method: 'POST', headers: { 'Content-Type': 'application/json', cookie, Origin: base }, body: JSON.stringify({ kind: 'video', course: 'UT' }) });
+  assert.equal(r.status, 200);
+  assert.equal((await r.json()).saved, false);
+  const s = await (await fetch(`${base}/api/training/summary`, { headers: { cookie } })).json();
+  assert.equal(s.enabled, false);
+  assert.equal((await (await fetch(`${base}/api/health`)).json()).training, 'off');
 });
 
 test('outside production a wrong setting still stops the server at once', async () => {

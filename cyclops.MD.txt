@@ -876,6 +876,11 @@ Sauvegarde des fichiers d'origine : _backup-2026-11-03/
 - Base de connaissances : nouveau type de source « Guide d'étude ASME/API » (résumé pédagogique, édition à vérifier), aussi utilisable par l'assistant principal. Nouveau test serveur (8 tests).
 - Constat : le modèle NVIDIA actuel (llama-3.2-90b-vision) est trop lent sur l'offre gratuite pour les réponses longues (délai dépassé) ; à revoir (autre modèle ou clé Anthropic).
 
+### Tableau de bord de formation pour les superviseurs
+- Nouveau training-store.mjs et cyclops-training.js : chaque personne envoie sa progression dans les cours, ses résultats d'examen et ses vidéos 3D terminées ; les superviseurs et administrateurs voient tout le monde (Labo > Tableau de bord formation) avec filtre par nom et export CSV. Examen réussi à 80 % ; mentions « dossiers de formation, pas des certifications ».
+- Stockage : base Postgres via DATABASE_URL (Neon gratuit prévu). Sans base, l'application fonctionne comme avant et le tableau de bord l'indique ; une panne de base n'arrête jamais l'application ; la progression non enregistrée est renvoyée plus tard. Requêtes paramétrées ; chacun n'enregistre que ses propres données (nom tiré de la session) ; lecture réservée aux rôles superviseur et admin.
+- Dépendances : pg 8.23.1 (serveur) ; @electric-sql/pglite 0.5.14 (tests seulement, vrai moteur Postgres). 20 tests serveur réussis, dont les requêtes SQL sur Postgres, les droits d'accès et le mode sans base.
+
 ### Voix au choix et tests automatiques sur GitHub
 - Nouveau cyclops-voice.js : choix de voix commun aux vidéos 3D, aux diapositives, au guide vidéo et au guide d'étude. Les voix naturelles de l'appareil passent en premier (★) et le choix est mémorisé par langue. Sélecteur de voix dans la barre des vidéos 3D. Gratuit : utilise les voix de l'appareil (Microsoft Edge propose des voix « Natural »). La clé NVIDIA n'offre aucun modèle vocal ; une voix de studio demanderait un service payant.
 - Nouveau .github/workflows/tests.yml : vérification de syntaxe et tests serveur à chaque envoi sur GitHub.

@@ -34,3 +34,7 @@ services:
         sync: false
       - key: SESSION_SECRET
         generateValue: true
+      # Training dashboard: a Postgres connection string, for example from a free Neon project.
+      # Without it the app works as before and the dashboard says it is not set up.
+      - key: DATABASE_URL
+        sync: false

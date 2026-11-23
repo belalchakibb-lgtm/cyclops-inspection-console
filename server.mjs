@@ -6,6 +6,7 @@ import { extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseEnv } from 'node:util';
 import { buildKnowledgeBase, detectMethod, METHODS, publicSource, retrieve } from './kb.mjs';
+import { cleanEvent, memoryStore, sqlStore } from './training-store.mjs';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 
@@ -54,7 +55,7 @@ const PUBLIC_FILES = new Map([
   ['/cyclops-procs.js', 'cyclops-procs.js'], ['/cyclops-courses.js', 'cyclops-courses.js'], ['/cyclops3D.js', 'cyclops3D.js'],
   ['/cyclops-quiz.js', 'cyclops-quiz.js'], ['/cyclops-tools.js', 'cyclops-tools.js'], ['/cyclops-field.css', 'cyclops-field.css'],
   ['/cyclops-utsim.js', 'cyclops-utsim.js'], ['/cyclops-rtsim.js', 'cyclops-rtsim.js'],
-  ['/cyclops-gl.js', 'cyclops-gl.js'], ['/cyclops-study.js', 'cyclops-study.js'], ['/cyclops-academy.js', 'cyclops-academy.js'], ['/cyclops-ndt-academy.js', 'cyclops-ndt-academy.js'], ['/cyclops-surfsim.js', 'cyclops-surfsim.js'], ['/cyclops-challenges.js', 'cyclops-challenges.js'], ['/cyclops-scenarios.js', 'cyclops-scenarios.js'], ['/cyclops-insight.js', 'cyclops-insight.js'], ['/cyclops-lab.js', 'cyclops-lab.js'], ['/cyclops-workspace.js', 'cyclops-workspace.js'], ['/cyclops-twin.js', 'cyclops-twin.js'], ['/cyclops-defects3d.js', 'cyclops-defects3d.js'], ['/cyclops-home.js', 'cyclops-home.js'], ['/cyclops-guide.js', 'cyclops-guide.js'], ['/cyclops-procourse.js', 'cyclops-procourse.js'], ['/cyclops-procourse-utrt.js', 'cyclops-procourse-utrt.js'], ['/cyclops-procourse-equip.js', 'cyclops-procourse-equip.js'], ['/cyclops-procourse-surf.js', 'cyclops-procourse-surf.js'], ['/cyclops-voice.js', 'cyclops-voice.js'], ['/cyclops-film.js', 'cyclops-film.js'], ['/cyclops-film-scenes.js', 'cyclops-film-scenes.js'], ['/guide/manifest.json', 'guide/manifest.json'],['/vendor/three.module.min.js', 'vendor/three.module.min.js'],
+  ['/cyclops-gl.js', 'cyclops-gl.js'], ['/cyclops-study.js', 'cyclops-study.js'], ['/cyclops-academy.js', 'cyclops-academy.js'], ['/cyclops-ndt-academy.js', 'cyclops-ndt-academy.js'], ['/cyclops-surfsim.js', 'cyclops-surfsim.js'], ['/cyclops-challenges.js', 'cyclops-challenges.js'], ['/cyclops-scenarios.js', 'cyclops-scenarios.js'], ['/cyclops-insight.js', 'cyclops-insight.js'], ['/cyclops-lab.js', 'cyclops-lab.js'], ['/cyclops-workspace.js', 'cyclops-workspace.js'], ['/cyclops-twin.js', 'cyclops-twin.js'], ['/cyclops-defects3d.js', 'cyclops-defects3d.js'], ['/cyclops-home.js', 'cyclops-home.js'], ['/cyclops-guide.js', 'cyclops-guide.js'], ['/cyclops-procourse.js', 'cyclops-procourse.js'], ['/cyclops-procourse-utrt.js', 'cyclops-procourse-utrt.js'], ['/cyclops-procourse-equip.js', 'cyclops-procourse-equip.js'], ['/cyclops-procourse-surf.js', 'cyclops-procourse-surf.js'], ['/cyclops-voice.js', 'cyclops-voice.js'], ['/cyclops-film.js', 'cyclops-film.js'], ['/cyclops-film-scenes.js', 'cyclops-film-scenes.js'], ['/cyclops-training.js', 'cyclops-training.js'], ['/guide/manifest.json', 'guide/manifest.json'],['/vendor/three.module.min.js', 'vendor/three.module.min.js'],
   ['/manifest.webmanifest', 'manifest.webmanifest'], ['/sw.js', 'sw.js'],
   ['/icons/icon-192.png', 'icons/icon-192.png'], ['/icons/icon-512.png', 'icons/icon-512.png'], ['/icons/icon.svg', 'icons/icon.svg']
 ]);
@@ -138,6 +139,27 @@ function setupPage() {
 // ---------- Knowledge base ----------
 let kb = await buildKnowledgeBase(root);
 
+// ---------- Training records (supervisor dashboard) ----------
+// DATABASE_URL (for example a free Neon Postgres) keeps course progress and exam scores for everyone.
+// Without it the app works as before and the dashboard says it is not set up. A database problem never stops the app.
+let training = null;
+let trainingProblem = '';
+if (!setupProblem && process.env.DATABASE_URL) {
+  try {
+    const { default: pg } = await import('pg');
+    const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 3, idleTimeoutMillis: 30_000, connectionTimeoutMillis: 15_000 });
+    pool.on('error', (error) => console.error('Training database connection lost:', error.code || error.message));
+    training = sqlStore((text, params) => pool.query(text, params));
+    await training.init();
+  } catch (error) {
+    training = null;
+    trainingProblem = 'The training database could not be reached. Check DATABASE_URL.';
+    console.error(`${trainingProblem} (${error.code || error.name || 'error'})`); // never the connection string
+  }
+} else if (process.env.TRAINING_STORE === 'memory') {
+  training = memoryStore();
+}
+
 // ---------- Helpers ----------
 function json(response, status, value, extra = {}) {
   response.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...securityHeaders, ...extra });
@@ -187,8 +209,8 @@ function setSessionCookie(response, value, maxAge) {
 }
 
 // Separate buckets so sign-in attempts and questions don't share a limit.
-const buckets = { login: new Map(), ask: new Map() };
-const limits = { login: 10, ask: Number(process.env.AI_RATE_PER_MINUTE || 20) };
+const buckets = { login: new Map(), ask: new Map(), training: new Map() };
+const limits = { login: 10, ask: Number(process.env.AI_RATE_PER_MINUTE || 20), training: 60 };
 function rateLimited(kind, address) {
   const now = Date.now();
   const log = buckets[kind];
@@ -337,6 +359,34 @@ function logout(request, response) {
   return json(response, 200, { ok: true, authEnabled: authConfigured });
 }
 
+// The app reports the signed-in person's own course progress, exam result or finished video.
+async function trainingRecord(request, response, session) {
+  if (request.method !== 'POST') return json(response, 405, { error: 'Use POST.' });
+  if (!sameOrigin(request)) return json(response, 403, { error: 'Request origin is not allowed.' });
+  if (rateLimited('training', `user:${session.user}`)) return json(response, 429, { error: 'Too many training updates.' });
+  let input;
+  try { input = await readJson(request, 2_048); } catch (error) { return json(response, error.status || 400, { error: error.message }); }
+  const ev = cleanEvent(input);
+  if (!ev) return json(response, 400, { error: 'Invalid training record.' });
+  if (!training) return json(response, 200, { saved: false, reason: trainingProblem ? 'database unreachable' : 'not set up' });
+  try { await training.record(session.user, ev); } catch (error) {
+    console.error('Training record not saved:', error.code || error.message);
+    return json(response, 503, { saved: false, error: 'The training record could not be saved.' });
+  }
+  return json(response, 200, { saved: true });
+}
+
+// Everyone's records, for supervisors and admins only.
+async function trainingSummary(request, response, session) {
+  if (!['GET', 'HEAD'].includes(request.method)) return json(response, 405, { error: 'Use GET.' });
+  if (session.role !== 'supervisor' && session.role !== 'admin') return json(response, 403, { error: 'Only supervisors and admins can see the training dashboard.' });
+  if (!training) return json(response, 200, { enabled: false, problem: trainingProblem || null });
+  try { return json(response, 200, { enabled: true, store: training.kind, rows: await training.summary() }); } catch (error) {
+    console.error('Training summary failed:', error.code || error.message);
+    return json(response, 503, { enabled: true, error: 'The training database could not be read.' });
+  }
+}
+
 async function answer(request, response, session) {
   if (request.method !== 'POST') return json(response, 405, { error: 'Use POST for assistant questions.' });
   if (!sameOrigin(request)) return json(response, 403, { error: 'Request origin is not allowed.' });
@@ -475,7 +525,7 @@ export async function serve(request, response) {
   }
   if (path === '/api/login') return login(request, response);
   if (path === '/api/logout') return logout(request, response);
-  if (path === '/api/health') return json(response, 200, { ok: true, provider: providerLabel, configured: Boolean(apiKey()), authEnabled: authConfigured });
+  if (path === '/api/health') return json(response, 200, { ok: true, provider: providerLabel, configured: Boolean(apiKey()), authEnabled: authConfigured, training: training ? training.kind : trainingProblem ? 'unreachable' : 'off' });
 
   const session = readSession(request);
   // video guide screenshots: only /guide/en|fr/<scene>.jpg, no other path form
@@ -494,6 +544,8 @@ export async function serve(request, response) {
     kb = await buildKnowledgeBase(root);
     return json(response, 200, { version: kb.version, passages: kb.N, aqcsDocuments: kb.documentCount });
   }
+  if (path === '/api/training') return trainingRecord(request, response, session);
+  if (path === '/api/training/summary') return trainingSummary(request, response, session);
   if (path === '/api/ask') return answer(request, response, session);
   if (path === '/api/ai-check') return json(response, 200, apiKey() ? await checkAi() : { ok: false, reason: 'no API key' });
   if (path.startsWith('/api/')) return json(response, 404, { error: 'Not found.' });
