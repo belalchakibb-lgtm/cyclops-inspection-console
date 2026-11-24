@@ -213,19 +213,31 @@ def g_kfen():
 
 
 def g_clarity():
-    """7. Clarity: an open eye under a rising sun; the haze lifts and the
-    rays reach the ground."""
-    out = [stroke("M -128,0 C -70,-74 70,-74 128,0 C 70,74 -70,74 -128,0 Z", 11)]
-    out.append(circle(0, 0, 38, filled=False, w=12))
-    out.append(circle(0, 0, 17))
-    for i in range(11):  # lashes / rays fan above
-        a = math.radians(-160 + i * 14)
-        out.append(stroke(f"M {86*math.cos(a):.1f},{-6+64*math.sin(a):.1f} "
-                          f"L {128*math.cos(a):.1f},{-6+104*math.sin(a):.1f}", 7))
-    out.append(stroke("M -110,96 L 110,96", 7))
-    out.append(stroke("M -80,120 L 80,120", 6))
-    out.append(stroke("M -44,142 L 44,142", 5))
-    return "".join(out)
+    """7. Clarity: a figure kneels at a guelta (a Tassili rock pool) whose
+    water is so still and clear that it holds a perfect image of the sun."""
+    out = []
+    # kneeling figure, facing right, leaning over the water
+    fig = (stroke("M -118,40 L -74,40", 12)                  # shin on the ground
+           + stroke("M -74,40 L -84,-2", 13)                 # upright thigh
+           + stroke("M -84,-2 C -76,-24 -64,-38 -50,-46", 15)  # torso leaning forward
+           + circle(-30, -54, 19)                            # head bowed toward the pool
+           + stroke("M -54,-40 C -40,-18 -24,4 -12,26", 10))  # arm reaching to the water
+    out.append(fig)
+    # the pool
+    out.append('<ellipse cx="46" cy="66" rx="104" ry="40" fill="none" stroke="#fff" stroke-width="9"/>')
+    # the reflection: the sun, mirrored whole in water clear as glass
+    out.append(circle(80, 64, 12))
+    for i in range(8):
+        a = i * math.pi / 4
+        out.append(stroke(f"M {80+18*math.cos(a)*1.25:.1f},{64+18*math.sin(a)*0.7:.1f} "
+                          f"L {80+27*math.cos(a)*1.25:.1f},{64+27*math.sin(a)*0.7:.1f}", 4))
+    # clear sky: a small sun
+    out.append(circle(92, -82, 16))
+    for i in range(8):
+        a = i * math.pi / 4
+        out.append(stroke(f"M {92+24*math.cos(a):.1f},{-82+24*math.sin(a):.1f} "
+                          f"L {92+36*math.cos(a):.1f},{-82+36*math.sin(a):.1f}", 5))
+    return f"<g transform='translate(0,-6) scale(1.18)'>{''.join(out)}</g>"
 
 
 def g_vantablack():

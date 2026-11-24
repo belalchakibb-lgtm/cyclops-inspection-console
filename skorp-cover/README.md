@@ -52,7 +52,7 @@ Algerian Arabic) and on Tassili n'Ajjer rock-art vocabulary. Every one is an
 | 4 | VRTX | vortex | A whirling spiral with pebbles and a tiny figure being pulled into its eye |
 | 5 | Damigha | الدامغة: "the crushing / irrefutable one", the classic name for a decisive poetic retort | An archer's single arrow splits its target |
 | 6 | Kfen K7el | كفن كحل: "black shroud" | A bound, shrouded body under a crescent moon, ringed by tumulus stones; carved deepest and filled soot-black |
-| 7 | Clarity | clarity | An open eye under a fan of rays, above calm horizon lines |
+| 7 | Clarity | clarity | A figure kneels at a guelta (a Tassili rock pool) whose water is so still and clear that it holds a perfect image of the sun |
 | 8 | Vantablack | the near-perfect light absorber | A solid soot-black disc; the sun's rays curl into it and do not come back |
 | 9 | SOS | distress signal | A figure with both arms up beside a signal fire and smoke rings; beneath, ··· — — — ··· pecked as dots and grooves (no letters) |
 | 10 | NOVA | a star's sudden flare | A burst of long and short rays, shock rings and scattered ejecta |
