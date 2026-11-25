@@ -882,7 +882,7 @@ Sauvegarde des fichiers d'origine : _backup-2026-11-03/
 - 3D réaliste : échantillon de tube coupé (paroi, soudure, calorifuge si besoin), textures procédurales (couleur, relief réel par déplacement, bump, rugosité/métal), film de procédé sombre côté intérieur, grain de surface, rouille, calamine, tubercules, piqûres, rainures d'érosion, cloques, fissures ramifiées, faïençage, gonflement de fluage et rupture. Méthodes montrées sur la pièce : PT (ressuage rouge), MT, MT fluorescent (lumière noire), traducteur UT avec C-scan d'épaisseur, radiographie de profil, VT ; coupe de paroi ou microstructure.
 - Acceptation : l'API RP 571 ne donne pas de critères ; chaque fiche renvoie au code d'évaluation (API 579-1 parties 3 à 14, API 510/570/653, API 530/573, API RP 941), badge « à vérifier ».
 - Labo des défauts 3D : bouton vers ce nouveau labo. Base de connaissances de l'IA : 536 passages « résumé RP 571 » ; bonus de pertinence quand un mot de la question nomme le sujet (ex. HTHA).
-- Testé : 67 mécanismes à tous les stades sans erreur, superpositions PT/UT/RT/MT fluorescent, coupe, FR, largeur téléphone ; 22 tests serveur réussis.
+- Testé : 67 mécanismes à tous les stades sans erreur, superpositions PT/UT/RT/MT fluorescent, coupe, FR, largeur téléphone ; 21 tests serveur réussis.
 
 ### Tableau de bord de formation pour les superviseurs
 - Nouveau training-store.mjs et cyclops-training.js : chaque personne envoie sa progression dans les cours, ses résultats d'examen et ses vidéos 3D terminées ; les superviseurs et administrateurs voient tout le monde (Labo > Tableau de bord formation) avec filtre par nom et export CSV. Examen réussi à 80 % ; mentions « dossiers de formation, pas des certifications ».
