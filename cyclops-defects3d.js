@@ -150,7 +150,7 @@
   function viewerBlock(id) { return `<div class="cydf-v" data-v="${id}">${window.CY3 && window.CY3.viewerMarkup ? window.CY3.viewerMarkup().replace('</div><div class="cy3bar">', '</div><div class="cy3bar"><button type="button" data-df-xray="' + id + '">👻 ' + L('X-ray', 'Rayons X') + '</button>') : ''}</div>`; }
   function draw() {
     const D = DEF[st.key];
-    ui.body.innerHTML = `<div class="cydf-list">${KEYS.map((k) => `<button type="button" data-df="${k}" class="${k === st.key ? 'on' : ''}">${esc(T2(DEF[k].n))}</button>`).join('')}</div>
+    ui.body.innerHTML = `${window.CYDM ? `<p style="margin:0 0 8px"><button type="button" data-df-dm="1" style="background:linear-gradient(90deg,#2b7fd8,#7a4dff);color:#fff;border-color:transparent;font-weight:700">🛢 ${L('In-service damage: all 67 API RP 571 mechanisms in 3D →', 'Dommages en service : les 67 mécanismes de l’API RP 571 en 3D →')}</button></p>` : ''}<div class="cydf-list">${KEYS.map((k) => `<button type="button" data-df="${k}" class="${k === st.key ? 'on' : ''}">${esc(T2(DEF[k].n))}</button>`).join('')}</div>
 ${cmp ? compareHtml() : `<div class="cydf-layout"><div>${viewerBlock('a')}<p class="cylab-note">${L('Drag to rotate · wheel/pinch to zoom · ✂ Section cuts through the weld · 👻 X-ray makes the metal transparent · click the defect.', 'Glisser pour tourner · molette/pincer pour zoomer · ✂ Coupe traverse la soudure · 👻 Rayons X rend le métal transparent · cliquez le défaut.')}</p></div>
 <div><h2 style="margin:0 0 6px">${esc(T2(D.n))}</h2><p>${esc(T2(D.d))}</p><p><b>${L('Typical causes', 'Causes typiques')}:</b> ${esc(T2(D.c))}</p>
 <h3>${L('How each method may reveal it', 'Comment chaque méthode peut le révéler')}</h3>
@@ -179,6 +179,7 @@ ${D.ut ? `<h3>📟 ${L('On the UT flaw detector', 'Sur le détecteur UT')}</h3><
   }
   function onClick(e) {
     const b = e.target.closest('button'); if (!b) return; const d = b.dataset;
+    if (d.dfDm) { ui.close(); window.CYDM.open(); return; }
     if (d.df) { st = { key: d.df, xray: st.xray, method: null }; if (cmp && cmp.key === d.df) cmp.key = KEYS.find((k) => k !== d.df); return draw(); }
     if (d.dfM) {
       st.method = st.method === d.dfM ? null : d.dfM; ui.body.querySelectorAll('[data-df-m]').forEach((x) => x.classList.toggle('on', x.dataset.dfM === st.method));

@@ -15,8 +15,10 @@ export const SOURCE_TYPES = {
   CODE_REF: { en: 'Code / standard reference (scope only, not code text)', fr: 'Référence code / norme (portée uniquement, pas le texte)' },
   CYCLOPS: { en: 'CYCLOPS built-in guidance (general, verify)', fr: 'Guide intégré CYCLOPS (général, à vérifier)' },
   STUDY: { en: 'ASME/API study guide (learning summary, verify the code edition)', fr: 'Guide d’étude ASME/API (résumé pédagogique, édition du code à vérifier)' },
-  COURSE: { en: 'CYCLOPS professional course (training summary, status shown)', fr: 'Cours professionnel CYCLOPS (résumé de formation, statut indiqué)' }
+  COURSE: { en: 'CYCLOPS professional course (training summary, status shown)', fr: 'Cours professionnel CYCLOPS (résumé de formation, statut indiqué)' },
+  DM: { en: 'Damage mechanism summary after API RP 571, 3rd ed. (training summary, not the standard’s text)', fr: 'Fiche mécanisme d’après l’API RP 571, 3e éd. (résumé de formation, pas le texte de la norme)' }
 };
+const DM_FILES = ['cyclops-dm-data.js', 'cyclops-dm-data2.js', 'cyclops-dmlab.js'];
 
 // The professional courses (cyclops-procourse*.js), read from the same files the courses use.
 const COURSE_FILES = ['cyclops-procourse.js', 'cyclops-procourse-utrt.js', 'cyclops-procourse-equip.js', 'cyclops-procourse-surf.js'];
@@ -64,6 +66,16 @@ async function loadProCourses(read) {
   return (window.CYPRO && window.CYPRO.COURSES) || {};
 }
 
+// The damage-mechanism catalogue (API RP 571 summaries) and its assessment notes, read from the lab's own files.
+async function loadDamageMechanisms(read) {
+  const window = {};
+  const context = vm.createContext({ window, console: { log() {}, warn() {}, error() {} } });
+  for (const file of DM_FILES) {
+    try { vm.runInContext(await read(file), context, { filename: file, timeout: 2000 }); } catch (error) { console.warn(`Damage file ${file} not loaded into the knowledge base: ${error.message}`); }
+  }
+  return { list: window.CYDM_DATA || [], assess: (window.CYDM && window.CYDM.ASSESS) || {}, meth: (window.CYDM && window.CYDM.METH) || {} };
+}
+
 function extractAsmeIndex(code3d) {
   const start = code3d.indexOf('const ASME_INDEX=[');
   if (start < 0) return [];
@@ -103,6 +115,7 @@ export async function buildKnowledgeBase(root) {
   const study = loadBrowserData(await read('cyclops-study.js'), 'cyclops-study.js').CYSTUDY || { lessons: [] };
   const documents = await loadDocuments(root);
   const proCourses = await loadProCourses(read);
+  const damage = await loadDamageMechanisms(read);
   const chunks = [];
   const add = (c) => chunks.push({ ...c, id: `${c.type}:${c.method}:${chunks.length}` });
 
@@ -159,6 +172,19 @@ export async function buildKnowledgeBase(root) {
       });
     });
   }
+  // Damage mechanisms: one passage for how it starts and looks, one for where and materials, one for inspection, one for prevention and assessment.
+  const DM_METHOD = { scc: 'OTH', h2: 'OTH', ht: 'APVG', thin: 'APVG', mech: 'APVG', metal: 'APVG' };
+  for (const d of damage.list) {
+    ['en', 'fr'].forEach((lang, i) => {
+      const p = (v) => (Array.isArray(v) ? String(v[i] == null ? v[0] : v[i]) : String(v || ''));
+      const base = { type: 'DM', method: DM_METHOD[d.f] || 'APVG', lang, source: `API RP 571 § ${d.s}`, section: p(d.n), revision: lang === 'fr' ? 'résumé de formation' : 'training summary' };
+      const methods = String(d.insp || '').split(',').map((x) => x.split(':')).sort((a, b) => b[1] - a[1]).map(([c, v]) => `${p(damage.meth[c] || [c, c])} (${['not effective', 'possible', 'effective'][Number(v)] || v})`).join('; ');
+      add({ ...base, text: `${p(d.n)}. ${d.st.map((s) => p(s)).join(' ')} ${lang === 'fr' ? 'Aspect' : 'Appearance'}: ${p(d.look)}` });
+      add({ ...base, text: `${p(d.n)} — ${lang === 'fr' ? 'où' : 'where'}: ${p(d.where)}. ${lang === 'fr' ? 'Matériaux' : 'Materials'}: ${p(d.mat)}.` });
+      add({ ...base, text: `${p(d.n)} — ${lang === 'fr' ? 'inspection' : 'inspection'}: ${methods}. ${p(d.focus)}` });
+      add({ ...base, text: `${p(d.n)} — ${lang === 'fr' ? 'prévention' : 'prevention'}: ${p(d.prev)} ${lang === 'fr' ? 'Évaluation' : 'Assessment'}: ${p((damage.assess[d.a] || [['']])[0])}` });
+    });
+  }
   for (const doc of documents) {
     const type = String(doc.status || 'approved').toLowerCase() === 'approved' ? 'AQCS' : 'AQCS_DRAFT';
     const base = { type, method: doc.method, lang: doc.lang || 'fr', source: `${doc.id || ''} ${doc.title || ''}`.trim(), revision: [doc.version && `v${doc.version}`, doc.revision && `rev ${doc.revision}`, doc.effectiveDate].filter(Boolean).join(' · ') || 'revision not set' };
@@ -172,6 +198,7 @@ export async function buildKnowledgeBase(root) {
   const df = {};
   for (const c of chunks) {
     c.terms = new Set(tokens(`${c.section} ${c.text} ${c.method}`));
+    c.secTerms = new Set(tokens(c.section)); // a word that names the topic (e.g. "HTHA", "creep") counts extra
     c.terms.forEach((w) => { df[w] = (df[w] || 0) + 1; });
   }
   const version = createHash('sha256').update(chunks.map((c) => `${c.type}|${c.method}|${c.revision}|${c.text}`).join('\n')).digest('hex').slice(0, 12);
@@ -186,7 +213,7 @@ export function retrieve(kb, question, { method = null, lang = 'en', limit = 6, 
   for (const c of kb.chunks) {
     if (c.lang !== lang && !(c.type === 'AQCS' || c.type === 'AQCS_DRAFT')) continue;
     let score = 0;
-    q.forEach((w) => { if (c.terms.has(w)) score += Math.log(1 + kb.N / (kb.df[w] || 1)); });
+    q.forEach((w) => { if (c.terms.has(w)) { const idf = Math.log(1 + kb.N / (kb.df[w] || 1)); score += idf; if (c.secTerms && c.secTerms.has(w)) score += idf * 0.8; } });
     if (!score) continue;
     if (method && method !== 'OTH') score *= c.method === method ? 2 : 0.5;
     if (c.type === 'AQCS') score *= 1.5;

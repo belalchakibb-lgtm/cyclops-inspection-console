@@ -340,6 +340,18 @@ test('without a database the app still works and the dashboard says it is not se
   assert.equal((await (await fetch(`${base}/api/health`)).json()).training, 'off');
 });
 
+test('the AI knows all 67 API RP 571 damage mechanisms, labelled as training summaries', async () => {
+  const { buildKnowledgeBase, retrieve } = await import('../kb.mjs');
+  const kb = await buildKnowledgeBase(root);
+  const dm = kb.chunks.filter((c) => c.type === 'DM');
+  const sections = new Set(dm.map((c) => c.source));
+  assert.equal(sections.size, 67);
+  for (let i = 1; i <= 67; i++) assert.ok(sections.has(`API RP 571 § 3.${i}`), `§ 3.${i}`);
+  assert.ok(dm.every((c) => /training summary|résumé de formation/.test(c.revision)));
+  assert.equal(retrieve(kb, 'what is HTHA and how is it found', { lang: 'en', limit: 1 })[0].source, 'API RP 571 § 3.36');
+  assert.equal(retrieve(kb, 'fissuration par chlorures inox sous calorifuge', { lang: 'fr', limit: 1 })[0].source, 'API RP 571 § 3.17');
+});
+
 test('outside production a wrong setting still stops the server at once', async () => {
   const child = spawn(process.execPath, ['server.mjs'], { cwd: root, env: { PATH: process.env.PATH, PORT: '47411', HOST: '127.0.0.1', AUDIT_LOG: 'off', CYCLOPS_USERS: 'admin:tooshort:admin', SESSION_SECRET: 'x'.repeat(40) } });
   child.stderr.resume(); child.stdout.resume();
