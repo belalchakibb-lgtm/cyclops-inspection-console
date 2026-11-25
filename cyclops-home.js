@@ -163,6 +163,6 @@ ${MENU.map((g) => `<h3>${esc(T2(g.t))}</h3>${g.items.map(([k, ic, t]) => `<butto
     const header = document.querySelector('main > header'); header.after(home);
     headerButtons(); render(); show();
   }
-  window.CYHOME = { show, procedures, menu: openMenu };
+  window.CYHOME = { show, procedures, menu: openMenu, MENU, METHODS, go: (k) => { if (ACTIONS[k]) { video.pause(); ACTIONS[k](); } } };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else setTimeout(init, 0);
 }());

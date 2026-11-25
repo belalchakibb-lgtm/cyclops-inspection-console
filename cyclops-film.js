@@ -159,7 +159,7 @@ dialog.cyfilm::backdrop { background: #000; }
   }
 
   /* ---------- player ---------- */
-  const st = { dlg: null, course: null, slides: [], i: 0, b: 0, sent: 0, playing: false, voice: true, rate: 1, tok: 0, timer: 0, wd: 0, raf: 0, kit: null, cam: null, t: 0, bt: 0, last: 0, opts: null, sceneKey: '', pendingFacts: [], fps: 60, frames: 0, ft: 0, pr: 1.5, resize: null, err: null, finished: false, intro: false };
+  const st = { uyaw: 0, upan: 0, dlg: null, course: null, slides: [], i: 0, b: 0, sent: 0, playing: false, voice: true, rate: 1, tok: 0, timer: 0, wd: 0, raf: 0, kit: null, cam: null, t: 0, bt: 0, last: 0, opts: null, sceneKey: '', pendingFacts: [], fps: 60, frames: 0, ft: 0, pr: 1.5, resize: null, err: null, finished: false, intro: false };
   const q = (s) => st.dlg.querySelector(s);
   const synth = () => (typeof speechSynthesis !== 'undefined' ? speechSynthesis : null);
   const silence = () => { st.tok++; clearTimeout(st.timer); clearTimeout(st.wd); const s = synth(); if (s) s.cancel(); };
@@ -213,7 +213,7 @@ dialog.cyfilm::backdrop { background: #000; }
     if (st.playing && !st.intro) { silence(); narrate(); } // continue the current sentence with the new voice
   }
   function goto(i, autoplay) {
-    silence(); st.i = clamp(i, 0, st.slides.length - 1); st.b = 0; st.sent = 0; st.t = 0; st.bt = 0; st.hold = 3; st.spoke = false; st.intro = false; st.finished = false; q('.cyf-q').classList.remove('on'); q('.cyf-card').style.pointerEvents = '';
+    silence(); st.i = clamp(i, 0, st.slides.length - 1); st.b = 0; st.sent = 0; st.t = 0; st.bt = 0; st.hold = 3; st.uyaw = 0; st.upan = 0; st.spoke = false; st.intro = false; st.finished = false; q('.cyf-q').classList.remove('on'); q('.cyf-card').style.pointerEvents = '';
     buildScene(); drawHud(); caption(); showFacts();
     if (st.opts.onSlide) st.opts.onSlide(st.slides[st.i].__idx);
     if (autoplay !== false && st.playing) intro(); else q('.cyf-card').classList.remove('on');
@@ -279,7 +279,10 @@ dialog.cyfilm::backdrop { background: #000; }
     const tx = cam[3], ty = cam[4], tz = cam[5], px = tx + (cam[0] - tx) * far, py = ty + (cam[1] - ty) * far, pz = tz + (cam[2] - tz) * far;
     if (!st.cam) { st.cam = { p: new THREE.Vector3(px + (px - tx) * 0.22, py + (py - ty) * 0.22, pz + (pz - tz) * 0.22), t: new THREE.Vector3(tx, ty, tz) }; }
     const a = 1 - Math.exp(-dt * 1.5); st.cam.p.lerp(new THREE.Vector3(px, py, pz), a); st.cam.t.lerp(new THREE.Vector3(tx, ty, tz), a);
-    const sway = reduced ? 0 : Math.sin(st.t / 3.4) * 0.28; c.position.set(st.cam.p.x + sway, st.cam.p.y + sway * 0.25, st.cam.p.z); c.lookAt(st.cam.t);
+    // the viewer's own look-around (drag) and sideways move (◀ ▶), on top of the director's camera
+    const ox = st.cam.p.x - st.cam.t.x, oz = st.cam.p.z - st.cam.t.z, cy = Math.cos(st.uyaw), sy = Math.sin(st.uyaw), rx = ox * cy + oz * sy, rz = -ox * sy + oz * cy;
+    const ang = Math.atan2(rx, rz), sx = Math.cos(ang) * st.upan, sz = -Math.sin(ang) * st.upan;
+    const sway = reduced ? 0 : Math.sin(st.t / 3.4) * 0.28; c.position.set(st.cam.t.x + rx + sx + sway, st.cam.p.y + sway * 0.25, st.cam.t.z + rz + sz); c.lookAt(st.cam.t.x + sx, st.cam.t.y, st.cam.t.z + sz);
     renderer.render(k.scene, c);
     st.frames++; if (now - st.ft > 1500) { st.fps = st.frames / ((now - st.ft) / 1000); st.frames = 0; st.ft = now; if (st.fps < 22 && st.pr > 0.7) { st.pr = Math.max(0.7, st.pr - 0.3); fit(); } }
   }
@@ -300,7 +303,9 @@ dialog.cyfilm::backdrop { background: #000; }
   }
   function onKey(e) {
     if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
-    if (e.key === ' ') { e.preventDefault(); togglePlay(); } else if (e.key === 'ArrowRight') goto(st.i + 1); else if (e.key === 'ArrowLeft') goto(st.i - 1);
+    if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+    else if (e.shiftKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) { e.preventDefault(); st.upan = clamp(st.upan + (e.key === 'ArrowRight' ? 0.6 : -0.6), -8, 8); } // Shift + arrows: move sideways
+    else if (e.key === 'ArrowRight') goto(st.i + 1); else if (e.key === 'ArrowLeft') goto(st.i - 1);
   }
   async function play(course, index, opts) {
     const c = window.CYPRO && window.CYPRO.COURSES[course]; if (!c) return;
@@ -309,9 +314,17 @@ dialog.cyfilm::backdrop { background: #000; }
     st.slides = c.slides.map((s, k) => { s.__idx = k; s.__answered = false; return s; }).filter((s) => !s.exam);
     const dlg = document.createElement('dialog'); dlg.className = 'cyfilm'; st.dlg = dlg;
     dlg.innerHTML = `<div class="cyf-wrap"><div class="cyf-stage"><div class="cyf-top"></div><button type="button" class="cyf-close" data-f-close aria-label="${L('Close the video', 'Fermer la vidéo')}">✕</button><div class="cyf-facts"></div><div class="cyf-card"></div><div class="cyf-cap"></div><div class="cyf-q"></div></div><aside class="cyf-panel"></aside>
-<div class="cyf-bar"><button type="button" data-f-nav="-1" aria-label="${L('Previous', 'Précédent')}">⏮</button><button type="button" class="main" data-f-play></button><button type="button" data-f-nav="1" aria-label="${L('Next', 'Suivant')}">⏭</button><button type="button" data-f-voice aria-label="${L('Voice', 'Voix')}"></button><button type="button" data-f-rate aria-label="${L('Speed', 'Vitesse')}"></button><select class="cyf-vsel" data-f-vpick aria-label="${L('Choose the voice', 'Choisir la voix')}" title="${L('Choose the voice (★ = most natural)', 'Choisir la voix (★ = la plus naturelle)')}"></select><div class="cyf-line"></div><span class="cyf-note">${L('Illustrative 3D, not to scale · training content, not a certification', '3D illustrative, pas à l’échelle · contenu de formation, pas une certification')}</span></div></div>`;
+<div class="cyf-bar"><button type="button" data-f-nav="-1" aria-label="${L('Previous', 'Précédent')}">⏮</button><button type="button" class="main" data-f-play></button><button type="button" data-f-nav="1" aria-label="${L('Next', 'Suivant')}">⏭</button><button type="button" data-f-pan="-1" title="${L('Move left (hold) · drag the scene to look around', 'Aller à gauche (maintenir) · glisser la scène pour regarder autour')}" aria-label="${L('Move left', 'Aller à gauche')}">◀</button><button type="button" data-f-pan="1" title="${L('Move right (hold)', 'Aller à droite (maintenir)')}" aria-label="${L('Move right', 'Aller à droite')}">▶</button><button type="button" data-f-voice aria-label="${L('Voice', 'Voix')}"></button><button type="button" data-f-rate aria-label="${L('Speed', 'Vitesse')}"></button><select class="cyf-vsel" data-f-vpick aria-label="${L('Choose the voice', 'Choisir la voix')}" title="${L('Choose the voice (★ = most natural)', 'Choisir la voix (★ = la plus naturelle)')}"></select><div class="cyf-line"></div><span class="cyf-note">${L('Illustrative 3D, not to scale · training content, not a certification', '3D illustrative, pas à l’échelle · contenu de formation, pas une certification')}</span></div></div>`;
     document.body.appendChild(dlg); dlg.showModal();
     dlg.addEventListener('click', onClick); dlg.addEventListener('keydown', onKey); dlg.addEventListener('change', onVoicePick);
+    // look around: drag on the stage turns the view; ◀ ▶ (held) or right-drag / Shift-drag / two fingers move sideways
+    { const stage = q('.cyf-stage'), pts = new Map(); let panDrag = false, hold = 0; const panBy = (d) => { st.upan = clamp(st.upan + d, -8, 8); }, stop = () => { clearInterval(hold); hold = 0; };
+      stage.addEventListener('contextmenu', (e) => e.preventDefault());
+      stage.addEventListener('pointerdown', (e) => { if (e.target.closest('button,.cyf-q')) return; stage.setPointerCapture(e.pointerId); pts.set(e.pointerId, e.clientX); panDrag = e.button === 2 || e.button === 1 || e.shiftKey; });
+      stage.addEventListener('pointermove', (e) => { if (!pts.has(e.pointerId)) return; const dx = e.clientX - pts.get(e.pointerId); pts.set(e.pointerId, e.clientX); if (pts.size === 2 || panDrag) panBy(-dx * 0.02); else st.uyaw = clamp(st.uyaw - dx * 0.006, -2.6, 2.6); });
+      ['pointerup', 'pointercancel'].forEach((ev) => stage.addEventListener(ev, (e) => pts.delete(e.pointerId)));
+      dlg.addEventListener('pointerdown', (e) => { const b = e.target.closest('[data-f-pan]'); if (!b) return; e.preventDefault(); stop(); const d = Number(b.dataset.fPan); panBy(d * 0.25); hold = setInterval(() => panBy(d * 0.08), 16); ['pointerup', 'pointercancel', 'blur'].forEach((ev) => window.addEventListener(ev, stop, { once: true })); });
+      ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => dlg.addEventListener(ev, stop)); }
     fillVoices(); const S0 = synth(); if (S0 && S0.addEventListener) { S0.addEventListener('voiceschanged', fillVoices); dlg.addEventListener('close', () => S0.removeEventListener('voiceschanged', fillVoices)); }
     dlg.addEventListener('close', () => {
       silence(); cancelAnimationFrame(st.raf); st.raf = 0; if (st.kit) { st.kit.dispose(); st.kit = null; } if (st.resize) st.resize.disconnect();

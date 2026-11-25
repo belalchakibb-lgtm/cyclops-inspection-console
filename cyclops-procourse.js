@@ -147,12 +147,12 @@
   let ui = null;
   const synth = () => (typeof speechSynthesis !== 'undefined' ? speechSynthesis : null);
   const stop = () => { st.tok++; clearTimeout(st.timer); const s = synth(); if (s) s.cancel(); };
-  function open(course) {
+  function open(course, slide) {
     if (!window.CYLAB) return; stop(); st.playing = false;
     if (!document.getElementById('cypc-css')) { const s = document.createElement('style'); s.id = 'cypc-css'; s.textContent = css; document.head.appendChild(s); }
     ui = window.CYLAB.shell({ cls: 'cypc', title: '🎓 ' + L('Professional courses', 'Cours professionnels'), sub: L('Code requirements and acceptance criteria — working summaries, always check the edition in force', 'Exigences des codes et critères d’acceptation — résumés de travail, vérifiez toujours l’édition en vigueur') });
     ui.dlg.addEventListener('close', stop); ui.dlg.addEventListener('click', onClick); ui.dlg.addEventListener('input', onInput);
-    if (COURSES[course]) start(course); else pick();
+    if (COURSES[course]) start(course, slide); else pick();
   }
   function pick() {
     stop(); st.m = null; const d = done();
@@ -160,7 +160,7 @@
 <div class="cypc-pick">${ORDER.map((m) => { const c = COURSES[m], n = c.slides.length, s = Math.min(d[m] || 0, n); return `<div class="cypc-card"><button type="button" data-pc="${m}" class="${s >= n ? 'done' : ''}"><b>${c.icon} ${esc(T2(c.name))}</b><small>${esc(c.codes)}</small><small>${n} ${L('slides', 'diapositives')} · ${s}/${n} ${L('seen', 'vues')}</small></button>${window.CYFILM ? `<button type="button" class="cypc-film" data-pc-film-m="${m}">🎬 ${L('Watch the 3D video', 'Voir la vidéo 3D')}</button>` : ''}</div>`; }).join('')}</div>
 <p class="cylab-note">${L('Training content, not a certification. The code edition in force, the contract, the approved procedure and the qualified inspector decide. National regulation can be stricter. Add your AQCS procedures and licensed codes to the documents folder so the AI assistant can cite them.', 'Contenu de formation, pas une certification. L’édition du code en vigueur, le contrat, la procédure approuvée et l’inspecteur qualifié décident. La réglementation nationale peut être plus stricte. Ajoutez vos procédures AQCS et codes sous licence dans le dossier documents pour que l’assistant IA puisse les citer.')}</p>`;
   }
-  function start(m) { st.m = m; st.i = 0; st.playing = false; draw(); window.CY_LESSON = L('Professional course: ', 'Cours professionnel : ') + T2(COURSES[m].name); window.dispatchEvent(new CustomEvent('cy-learn', { detail: { id: 'pro:' + m } })); }
+  function start(m, slide) { st.m = m; st.i = Math.max(0, Math.min(COURSES[m].slides.length - 1, Number(slide) || 0)); st.playing = false; draw(); window.CY_LESSON = L('Professional course: ', 'Cours professionnel : ') + T2(COURSES[m].name); window.dispatchEvent(new CustomEvent('cy-learn', { detail: { id: 'pro:' + m } })); }
   function draw() {
     const c = COURSES[st.m], s = c.slides[st.i]; st.b = st.playing ? 0 : s.b.length; if (s.exam && !s.sel) prepExam(s);
     ui.body.innerHTML = `<div class="cypc-layout"><div class="cypc-side"><button type="button" data-pc-back="1">← ${L('All courses', 'Tous les cours')}</button>${c.slides.map((x, k) => `<button type="button" data-pc-i="${k}" class="${k === st.i ? 'on' : ''}">${k + 1}. ${esc(T2(x.t))}</button>`).join('')}</div>
@@ -230,6 +230,6 @@ ${r ? `<p class="cysurf-score"><b>${r.score}/${s.exam.length} (${r.pct} %)</b> �
     }
   }
   function onInput(e) { if (e.target.dataset && e.target.dataset.pcF) refreshTool(); }
-  window.CYPRO = { open, COURSES, TB, TOOLS };
+  window.CYPRO = { open, COURSES, TB, TOOLS, openFilm: (m, slide) => { open(m, slide); if (window.CYFILM && COURSES[m]) film(); } };
   if (window.CYLAB) window.CYLAB.register({ icon: '🎓', available: () => true, open: () => open(), title: () => L('Professional courses', 'Cours professionnels'), desc: () => L('Narrated courses with code requirements and acceptance criteria: UT, RT, MT, PT, VT, APVG, APL, APE.', 'Cours commentés avec exigences des codes et critères d’acceptation : UT, RT, MT, PT, VT, APVG, APL, APE.') });
 }());

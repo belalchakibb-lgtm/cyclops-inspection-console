@@ -167,7 +167,7 @@
   }
   function tex(c, srgb) { const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; }
 
-  const st = { key: null, stage: 1, method: null, family: 'all', q: '', yaw: 0, pitch: 0.5, dist: 4.4, raf: 0, scene: null, camera: null, group: null, maps: null, dlg: null, ui: null, drag: null, lights: null };
+  const st = { key: null, stage: 1, method: null, family: 'all', q: '', yaw: 0, pitch: 0.5, dist: 4.4, pan: 0, raf: 0, scene: null, camera: null, group: null, maps: null, dlg: null, ui: null, drag: null, lights: null };
   function buildScene() {
     if (!renderer) return; const d = byKey(st.key), m = d.m;
     if (st.scene) dispose();
@@ -192,7 +192,7 @@
     const floor = new THREE.Mesh(new THREE.CircleGeometry(8, 64), new THREE.MeshStandardMaterial({ color: 0x141c33, roughness: 0.9 })); floor.rotation.x = -Math.PI / 2; floor.position.y = -1.35; floor.receiveShadow = true; scene.add(floor);
     const camera = new THREE.PerspectiveCamera(36, 1.6, 0.05, 60);
     Object.assign(st, { scene, camera, group, lights: { spot, key, head } });
-    st.yaw = ((m.side === 'OD' || m.t === 'bulge') && m.t !== 'none' ? Math.PI : 0) + 0.55; st.pitch = 0.5; // three-quarter view of the damaged surface
+    st.yaw = ((m.side === 'OD' || m.t === 'bulge') && m.t !== 'none' ? Math.PI : 0) + 0.55; st.pitch = 0.5; st.pan = 0; // three-quarter view of the damaged surface
     addMethodProps(); fit();
   }
   function dispose() { st.scene.traverse((o) => { if (o.geometry) o.geometry.dispose(); const ms = o.material ? (Array.isArray(o.material) ? o.material : [o.material]) : []; ms.forEach((x) => { ['map', 'bumpMap', 'displacementMap', 'roughnessMap', 'metalnessMap', 'emissiveMap'].forEach((k) => x[k] && x[k].dispose()); x.dispose(); }); }); st.scene = null; }
@@ -220,8 +220,8 @@
   function fit() { if (!renderer || !st.ui) return; const box = st.ui.querySelector('.cydm-v'); const w = box.clientWidth, h = box.clientHeight; if (!w || !h) return; renderer.setPixelRatio(Math.min(1.75, devicePixelRatio || 1)); renderer.setSize(w, h, false); if (st.camera) { st.camera.aspect = w / h; st.camera.updateProjectionMatrix(); } }
   function frame(t) {
     st.raf = requestAnimationFrame(frame); if (!st.scene || !renderer) return;
-    const c = st.camera, r = st.dist * Math.max(1, 1.5 / c.aspect);
-    c.position.set(Math.sin(st.yaw) * Math.cos(st.pitch) * r, Math.sin(st.pitch) * r + 0.1, Math.cos(st.yaw) * Math.cos(st.pitch) * r); c.lookAt(0, 0, 0);
+    const c = st.camera, r = st.dist * Math.max(1, 1.5 / c.aspect), px = Math.cos(st.yaw) * st.pan, pz = -Math.sin(st.yaw) * st.pan; // pan: slide sideways
+    c.position.set(px + Math.sin(st.yaw) * Math.cos(st.pitch) * r, Math.sin(st.pitch) * r + 0.1, pz + Math.cos(st.yaw) * Math.cos(st.pitch) * r); c.lookAt(px, 0, pz);
     if (st.probe) st.probe.parent.rotation.y = Math.PI + Math.sin(t / 900) * 0.35; // probe scanning across the zone
     st.lights.head.position.copy(c.position); st.lights.head.intensity = st.method === 'WFMT' ? 0.05 : 0.4;
     if (st.lights.spot.intensity) { st.lights.spot.position.set(c.position.x * 0.6, c.position.y + 1.2, c.position.z * 0.6); st.lights.spot.target.position.set(0, 0, 0); }
@@ -353,11 +353,19 @@ dialog.cydm .cylab-body { padding: 0; }
     if (dd.dmFlip != null) { st.yaw += Math.PI; return; }
     if (dd.dmAi != null) { const d = byKey(st.key); st.dlg.close(); if (window.CY3 && window.CY3.send) { window.CY3.open(); window.CY3.send(L('Explain this damage mechanism for a working inspector (API RP 571): how it starts, where to look, which NDT finds it best, and which code is used to assess it: ', 'Explique ce mécanisme de dégradation pour un inspecteur (API RP 571) : comment il démarre, où chercher, quel CND le trouve le mieux, et quel code sert à l’évaluer : ') + T2(d.n) + ' (§ ' + d.s + ')'); } }
   }
+  const panBy = (d) => { st.pan = clamp(st.pan + d * st.dist, -LEN * 0.6, LEN * 0.6); };
   function bindViewer(v) {
-    const pts = new Map(); let pinch = 0;
-    v.addEventListener('pointerdown', (e) => { v.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); v.style.cursor = 'grabbing'; });
+    const pts = new Map(); let pinch = 0, panDrag = false, hold = 0;
+    v.tabIndex = 0; v.addEventListener('contextmenu', (e) => e.preventDefault());
+    v.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft') { e.preventDefault(); panBy(-0.05); } else if (e.key === 'ArrowRight') { e.preventDefault(); panBy(0.05); } });
+    // ◀ ▶ buttons in the bar: press and hold to keep moving
+    const stop = () => { clearInterval(hold); hold = 0; };
+    st.ui.addEventListener('pointerdown', (e) => { const b = e.target.closest('[data-dm-pan]'); if (!b) return; e.preventDefault(); stop(); const d = Number(b.dataset.dmPan); panBy(d * 0.03); hold = setInterval(() => panBy(d * 0.012), 16); ['pointerup', 'pointercancel', 'blur'].forEach((ev) => window.addEventListener(ev, stop, { once: true })); });
+    ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => st.ui.addEventListener(ev, stop));
+    v.addEventListener('pointerdown', (e) => { v.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); v.style.cursor = 'grabbing'; panDrag = e.button === 2 || e.button === 1 || e.shiftKey; });
     v.addEventListener('pointermove', (e) => { if (!pts.has(e.pointerId)) return; const p = pts.get(e.pointerId), dx = e.clientX - p[0], dy = e.clientY - p[1]; pts.set(e.pointerId, [e.clientX, e.clientY]);
-      if (pts.size === 2) { const [a, b] = [...pts.values()], dist = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch) st.dist = clamp(st.dist * pinch / dist, 2.2, 9); pinch = dist; return; }
+      if (pts.size === 2) { const [a, b] = [...pts.values()], dist = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch) st.dist = clamp(st.dist * pinch / dist, 2.2, 9); pinch = dist; panBy(-dx * 0.0008); return; } // two fingers: pinch to zoom, slide sideways
+      if (panDrag) { panBy(-dx * 0.0016); return; }
       st.yaw -= dx * 0.008; st.pitch = clamp(st.pitch + dy * 0.006, -1.2, 1.3); });
     const up = (e) => { pts.delete(e.pointerId); pinch = 0; v.style.cursor = 'grab'; }; v.addEventListener('pointerup', up); v.addEventListener('pointercancel', up);
     v.addEventListener('wheel', (e) => { e.preventDefault(); st.dist = clamp(st.dist * (e.deltaY > 0 ? 1.08 : 0.92), 2.2, 9); }, { passive: false });
@@ -369,8 +377,8 @@ dialog.cydm .cylab-body { padding: 0; }
     const ui = window.CYLAB.shell({ cls: 'cydm', title: '🛢 ' + L('Damage mechanisms 3D — API RP 571', 'Mécanismes de dégradation 3D — API RP 571'), sub: L('67 mechanisms on a realistic cut sample: how each starts, how to inspect it, and how it is assessed · training illustrations', '67 mécanismes sur un échantillon coupé réaliste : comment chacun démarre, comment l’inspecter, comment l’évaluer · illustrations de formation') });
     st.dlg = ui.dlg;
     ui.body.innerHTML = `<div class="cydm-wrap"><div class="cydm-list"><input type="search" data-dm-q placeholder="${L('Search 67 mechanisms…', 'Chercher parmi 67 mécanismes…')}" aria-label="${L('Search', 'Chercher')}"><div class="cydm-fam"><button type="button" data-dm-fam="all" class="on">${L('All', 'Tous')}</button>${Object.keys(FAM).map((f) => `<button type="button" data-dm-fam="${f}" style="border-color:${FAM[f][2]}">${esc(T2(FAM[f]))}</button>`).join('')}</div><div class="cydm-list-items"></div></div>
-<div class="cydm-mid"><div class="cydm-v"><div class="cydm-tag"></div><div class="cydm-hint">${L('Drag to rotate · wheel or pinch to zoom · ⟲ flips inside/outside', 'Glisser pour tourner · molette ou pincer pour zoomer · ⟲ retourne intérieur/extérieur')}</div></div>
-<div class="cydm-bar"><span>${L('Stage', 'Stade')}:</span><div class="cydm-stage">${[L('1 · Starts', '1 · Début'), L('2 · Grows', '2 · Progression'), L('3 · Ends', '3 · Fin')].map((t, i) => `<button type="button" data-dm-stage="${i}">${t}</button>`).join('')}</div><button type="button" data-dm-flip>⟲ ${L('Inside / outside', 'Intérieur / extérieur')}</button><span class="cylab-note" style="margin-left:auto">${L('Illustrative, not to scale', 'Illustratif, pas à l’échelle')}</span></div></div>
+<div class="cydm-mid"><div class="cydm-v"><div class="cydm-tag"></div><div class="cydm-hint">${L('Drag to rotate · wheel or pinch to zoom · ◀ ▶, right-drag or two fingers to move sideways · ⟲ flips inside/outside', 'Glisser pour tourner · molette ou pincer pour zoomer · ◀ ▶, clic droit glissé ou deux doigts pour aller sur le côté · ⟲ retourne intérieur/extérieur')}</div></div>
+<div class="cydm-bar"><span>${L('Stage', 'Stade')}:</span><div class="cydm-stage">${[L('1 · Starts', '1 · Début'), L('2 · Grows', '2 · Progression'), L('3 · Ends', '3 · Fin')].map((t, i) => `<button type="button" data-dm-stage="${i}">${t}</button>`).join('')}</div><button type="button" data-dm-flip>⟲ ${L('Inside / outside', 'Intérieur / extérieur')}</button><button type="button" data-dm-pan="-1" title="${L('Move left (hold)', 'Aller à gauche (maintenir)')}" aria-label="${L('Move left', 'Aller à gauche')}">◀</button><button type="button" data-dm-pan="1" title="${L('Move right (hold)', 'Aller à droite (maintenir)')}" aria-label="${L('Move right', 'Aller à droite')}">▶</button><span class="cylab-note" style="margin-left:auto">${L('Illustrative, not to scale', 'Illustratif, pas à l’échelle')}</span></div></div>
 <div class="cydm-info"></div></div>`;
     st.ui = ui.body; ui.body.addEventListener('click', onClick);
     ui.body.querySelector('[data-dm-q]').addEventListener('input', (e) => { st.q = e.target.value; ui.body.querySelector('.cydm-list-items').innerHTML = listHtml(); });
@@ -382,6 +390,6 @@ dialog.cydm .cylab-body { padding: 0; }
     else v.insertAdjacentHTML('beforeend', `<p style="position:absolute;top:60px;left:12px;color:#ffd27a">${L('3D is not available on this device; the descriptions and sections still work.', '3D indisponible sur cet appareil ; descriptions et coupes restent disponibles.')}</p>`);
     const item = ui.body.querySelector('.cydm-item.on'); if (item) item.scrollIntoView({ block: 'center' });
   }
-  window.CYDM = { open, maps: () => st.maps, list: () => window.CYDM_DATA || [], state: () => ({ key: st.key, stage: st.stage, method: st.method, scene: !!st.scene, children: st.group ? st.group.children.length : 0 }), ASSESS, METH };
+  window.CYDM = { open, maps: () => st.maps, list: () => window.CYDM_DATA || [], state: () => ({ key: st.key, stage: st.stage, method: st.method, pan: st.pan, yaw: st.yaw, scene: !!st.scene, children: st.group ? st.group.children.length : 0 }), ASSESS, METH };
   if (window.CYLAB) window.CYLAB.register({ icon: '🛢', available: () => (window.CYDM_DATA || []).length > 0, open: () => open(), title: () => L('Damage mechanisms 3D (API RP 571)', 'Mécanismes de dégradation 3D (API RP 571)'), desc: () => L('All 67 API RP 571 mechanisms on a realistic 3D sample: how each starts and grows, inspection methods shown on the part, cross-sections, and the code used to assess it.', 'Les 67 mécanismes de l’API RP 571 sur un échantillon 3D réaliste : démarrage et progression, méthodes d’inspection montrées sur la pièce, coupes, et code d’évaluation.') });
 }());

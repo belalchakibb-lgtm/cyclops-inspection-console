@@ -59,7 +59,7 @@
     const ac = document.getElementById('academy-open'); actions.insertBefore(b, ac ? ac.nextSibling : actions.firstChild);
     const sw = document.getElementById('lang'); if (sw) sw.addEventListener('change', label);
   }
-  window.CYLAB = { open, shell, register, esc };
+  window.CYLAB = { open, shell, register, esc, cards: () => cards.filter((c) => c.available()) };
   // Academy features that belong in the lab too (they open the Academy on the right tab)
   const toAcademy = (t) => () => { document.querySelectorAll('dialog.cylab').forEach((d) => d.close()); if (window.CYACADEMY) window.CYACADEMY.open(t); };
   register({ icon: '🎲', available: () => !!window.CYACADEMY, open: toAcademy('scen'), title: () => L('Adaptive missions', 'Missions adaptatives'), desc: () => L('Random fictional jobs in all 8 areas, 3 difficulty levels; adaptive mode targets your weak points.', 'Travaux fictifs aléatoires dans les 8 domaines, 3 niveaux ; le mode adaptatif cible vos points faibles.') });

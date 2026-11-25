@@ -876,6 +876,12 @@ Sauvegarde des fichiers d'origine : _backup-2026-11-03/
 - Base de connaissances : nouveau type de source « Guide d'étude ASME/API » (résumé pédagogique, édition à vérifier), aussi utilisable par l'assistant principal. Nouveau test serveur (8 tests).
 - Constat : le modèle NVIDIA actuel (llama-3.2-90b-vision) est trop lent sur l'offre gratuite pour les réponses longues (délai dépassé) ; à revoir (autre modèle ou clé Anthropic).
 
+### Recherche globale et déplacement gauche / droite en 3D
+- Nouveau fichier cyclops-search.js : bouton « 🔍 Rechercher » dans l'en-tête, raccourcis Ctrl+K et « / ». Recherche dans tout CYCLOPS (≈ 350 entrées) : pages du menu, cartes du labo de formation, 67 mécanismes RP 571, défauts de soudure 3D, cours professionnels (vidéo 3D + chaque diapositive), modules Académie CND, leçons débutant, scénarios, guide d'étude, dictionnaire, calculs, jumeaux 3D, procédures par département.
+- Recherche sans accents, tous les mots exigés, résultats groupés par rubrique, ↑ ↓ + Entrée. Chaque résultat ouvre directement le bon module (ex. « HTHA » ouvre le mécanisme § 3.36 dans le labo 3D). Si rien ne correspond : « Demander à l'IA ». FR/EN, adapté au téléphone.
+- Toutes les vues 3D (labo des équipements / défauts, labo des mécanismes RP 571, vidéos 3D des cours) : boutons ◀ ▶ (maintenir pour avancer), flèches gauche/droite du clavier, glisser avec clic droit / molette / Maj, glisser à deux doigts sur téléphone. Dans les vidéos, flèches seules = diapositive, Maj+flèches = déplacement. Le déplacement s'arrête au relâchement, même hors du bouton.
+- Fichier ajouté au serveur (PUBLIC_FILES), à index.html, au cache hors ligne (sw.js, version 2026-11-25b) et au contrôle npm run check. Tests : 21/21.
+
 ### Mécanismes de dégradation 3D (API RP 571, 3e édition 2020)
 - Analyse du fichier API RP 571 (2020) fourni : texte extrait localement, 67 mécanismes (§ 3.1 à 3.67) lus pour leurs sections description, matériaux, aspect et inspection. Rien n'est recopié : chaque fiche est un résumé de formation rédigé pour CYCLOPS, EN/FR, avec son numéro de section.
 - Nouveaux cyclops-dm-data.js et cyclops-dm-data2.js (catalogue des 67) et cyclops-dmlab.js (labo 3D). Pour chaque mécanisme : comment il démarre, progresse et finit (3 stades), aspect, équipements et matériaux, méthodes d'inspection notées (●●● / ●●○ / ●○○) avec cible d'inspection, prévention, et voie d'acceptation.
