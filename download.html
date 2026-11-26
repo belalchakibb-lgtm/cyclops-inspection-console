@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Download CYCLOPS</title>
+  <meta name="description" content="Install the CYCLOPS inspection training app for Android (AQCS).">
+  <link rel="icon" href="/icons/icon.svg">
+  <style>
+    :root { color-scheme: dark; --bg: #081126; --panel: #121d3b; --line: #344a83; --text: #edf2ff; --muted: #aebbe3; --accent: #7657e8; --blue: #3da9ff; --ok: #4fd18b; }
+    * { box-sizing: border-box; }
+    body { min-height: 100vh; margin: 0; padding: 24px 16px 40px; background: radial-gradient(circle at 88% 4%, rgba(92, 64, 190, .45), transparent 31%), radial-gradient(circle at 8% 70%, rgba(27, 124, 220, .2), transparent 36%), var(--bg); color: var(--text); font: 16px/1.55 system-ui, sans-serif; }
+    main { width: min(100%, 560px); margin: 0 auto; }
+    header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    header img { width: 56px; height: 56px; border-radius: 12px; flex: none; }
+    header > div:not(.lang) { flex: 1 1 150px; min-width: 0; }
+    .lang { flex: none; }
+    h1 { margin: 0; font-size: 1.7rem; letter-spacing: .04em; }
+    .sub { color: var(--muted); margin: 2px 0 0; }
+    .lang { margin-left: auto; display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+    .lang button { border: 0; background: transparent; color: var(--muted); padding: 6px 11px; font: inherit; font-weight: 700; cursor: pointer; }
+    .lang button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+    .card { margin-top: 20px; border: 1px solid var(--line); border-radius: 12px; padding: 22px; background: rgba(18, 29, 59, .94); box-shadow: 0 18px 55px rgba(3, 7, 24, .35); }
+    .dl { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; border-radius: 10px; padding: 16px; background: var(--accent); color: #fff; font-size: 1.15rem; font-weight: 800; text-decoration: none; }
+    .dl:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+    .meta { text-align: center; color: var(--muted); font-size: .9rem; margin: 10px 0 0; }
+    h2 { font-size: 1.1rem; margin: 0 0 10px; }
+    ol { margin: 0; padding-left: 22px; } ol li { margin: 8px 0; }
+    b { color: #fff; }
+    .qr { display: grid; grid-template-columns: 150px 1fr; gap: 18px; align-items: center; }
+    .qr img { width: 150px; height: 150px; border-radius: 8px; background: #fff; padding: 6px; }
+    .note { border-left: 3px solid var(--blue); padding: 2px 0 2px 12px; color: var(--muted); }
+    .note + .note { margin-top: 12px; }
+    a.plain { color: var(--blue); }
+    .share { margin-top: 12px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--text); padding: 9px 14px; font: inherit; font-weight: 650; cursor: pointer; }
+    .copied { color: var(--ok); margin-left: 8px; }
+    footer { text-align: center; color: var(--muted); font-size: .85rem; margin-top: 22px; }
+    @media (max-width: 460px) { .qr { grid-template-columns: 1fr; justify-items: center; text-align: center; } h1 { font-size: 1.45rem; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <img src="/icons/icon-192.png" alt="">
+      <div><h1>CYCLOPS</h1><p class="sub" data-t="sub"></p></div>
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-l="en">EN</button><button type="button" data-l="fr">FR</button>
+      </div>
+    </header>
+
+    <section class="card">
+      <a class="dl" href="/cyclops.apk" download="CYCLOPS-AQCS.apk"><span aria-hidden="true">⬇</span> <span data-t="btn"></span></a>
+      <p class="meta" data-t="meta"></p>
+    </section>
+
+    <section class="card">
+      <h2 data-t="howT"></h2>
+      <ol>
+        <li data-t="s1"></li>
+        <li data-t="s2"></li>
+        <li data-t="s3"></li>
+        <li data-t="s4"></li>
+        <li data-t="s5"></li>
+      </ol>
+    </section>
+
+    <section class="card qr">
+      <img src="/icons/download-qr.svg" width="150" height="150" alt="QR code: cyclopsaqcs.onrender.com/download">
+      <div>
+        <h2 data-t="qrT"></h2>
+        <p class="sub" data-t="qrP"></p>
+        <button type="button" class="share" id="share"></button><span class="copied" id="copied" aria-live="polite"></span>
+      </div>
+    </section>
+
+    <section class="card">
+      <p class="note" data-t="acc"></p>
+      <p class="note" data-t="train"></p>
+      <p class="note" data-t="ios"></p>
+    </section>
+
+    <footer>CYCLOPS · AQCS · <a class="plain" href="/login" data-t="signin"></a></footer>
+  </main>
+  <script>
+    const T = {
+      sub: ['Inspection training app for Android · AQCS', 'Application de formation à l’inspection pour Android · AQCS'],
+      btn: ['Download the app', 'Télécharger l’application'],
+      meta: ['Android 7.0 or newer · about 70 KB · always the latest version', 'Android 7.0 ou plus récent · environ 70 Ko · toujours la dernière version'],
+      howT: ['How to install', 'Comment l’installer'],
+      s1: ['Tap <b>Download the app</b> above. The file <b>CYCLOPS-AQCS.apk</b> downloads.', 'Touchez <b>Télécharger l’application</b> ci-dessus. Le fichier <b>CYCLOPS-AQCS.apk</b> se télécharge.'],
+      s2: ['Open the downloaded file (from the notification or <b>My Files → Downloads</b>).', 'Ouvrez le fichier téléchargé (depuis la notification ou <b>Mes fichiers → Téléchargements</b>).'],
+      s3: ['If Android asks, tap <b>Settings</b> and turn on <b>Allow from this source</b>, then go back.', 'Si Android le demande, touchez <b>Paramètres</b> et activez <b>Autoriser cette source</b>, puis revenez.'],
+      s4: ['Tap <b>Install</b>. If Play Protect warns “unknown app”, tap <b>More details → Install anyway</b>. This is normal for apps not taken from the Play Store.', 'Touchez <b>Installer</b>. Si Play Protect affiche « application inconnue », touchez <b>Plus de détails → Installer quand même</b>. C’est normal pour une application hors Play Store.'],
+      s5: ['Open <b>CYCLOPS</b> and sign in with the username and password from your AQCS administrator.', 'Ouvrez <b>CYCLOPS</b> et connectez-vous avec l’identifiant et le mot de passe fournis par votre administrateur AQCS.'],
+      qrT: ['Share with a colleague', 'Partager avec un collègue'],
+      qrP: ['Scan this code with a phone camera to open this page.', 'Scannez ce code avec l’appareil photo d’un téléphone pour ouvrir cette page.'],
+      share: ['Share this page', 'Partager cette page'],
+      copied: ['Link copied', 'Lien copié'],
+      acc: ['You need a CYCLOPS account to use the app. Ask your AQCS administrator for one.', 'Il faut un compte CYCLOPS pour utiliser l’application. Demandez-le à votre administrateur AQCS.'],
+      train: ['CYCLOPS is for training and field support. It is not a certification and does not replace your approved procedures.', 'CYCLOPS sert à la formation et à l’aide sur le terrain. Ce n’est pas une certification et il ne remplace pas vos procédures approuvées.'],
+      ios: ['iPhone: there is no iPhone app yet. Open cyclopsaqcs.onrender.com in Safari and use Share → Add to Home Screen.', 'iPhone : pas encore d’application iPhone. Ouvrez cyclopsaqcs.onrender.com dans Safari puis Partager → Sur l’écran d’accueil.'],
+      signin: ['Sign in on the web', 'Se connecter sur le web']
+    };
+    let lang = 'en';
+    try { const saved = localStorage.getItem('cyclops-dl-lang'); lang = saved || ((navigator.language || '').toLowerCase().startsWith('fr') ? 'fr' : 'en'); } catch { lang = (navigator.language || '').toLowerCase().startsWith('fr') ? 'fr' : 'en'; }
+    const shareBtn = document.getElementById('share');
+    const copied = document.getElementById('copied');
+    function apply() {
+      const i = lang === 'fr' ? 1 : 0;
+      document.documentElement.lang = lang;
+      document.title = i ? 'Télécharger CYCLOPS' : 'Download CYCLOPS';
+      document.querySelectorAll('[data-t]').forEach((el) => { el.innerHTML = T[el.dataset.t][i]; });
+      document.querySelectorAll('[data-l]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.l === lang)));
+      shareBtn.textContent = T.share[i];
+      copied.textContent = '';
+    }
+    document.querySelectorAll('[data-l]').forEach((b) => b.addEventListener('click', () => { lang = b.dataset.l; try { localStorage.setItem('cyclops-dl-lang', lang); } catch {} apply(); }));
+    shareBtn.addEventListener('click', async () => {
+      const url = location.origin + '/download';
+      try {
+        if (navigator.share) { await navigator.share({ title: 'CYCLOPS', url }); return; }
+        await navigator.clipboard.writeText(url);
+        copied.textContent = T.copied[lang === 'fr' ? 1 : 0];
+      } catch { /* share cancelled or clipboard blocked: nothing to do */ }
+    });
+    apply();
+  </script>
+</body>
+</html>

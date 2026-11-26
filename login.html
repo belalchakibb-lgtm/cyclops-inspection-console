@@ -18,6 +18,7 @@
     button { width: 100%; margin-top: 8px; border: 1px solid var(--accent); border-radius: 7px; padding: 10px 14px; background: var(--accent); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
     button:disabled { opacity: .65; cursor: wait; }
     #message { min-height: 1.5em; margin: 12px 0 0; color: #ff9b9b; }
+    .app { display: block; margin-top: 14px; text-align: center; color: var(--blue); font-size: .92rem; }
   </style>
 </head>
 <body>
@@ -30,6 +31,7 @@
       <button type="submit">Sign in</button>
       <div id="message" role="alert" aria-live="polite"></div>
     </form>
+    <a class="app" href="/download">📱 Get the Android app · Application Android</a>
   </main>
   <script>
     document.getElementById('login-form').addEventListener('submit', async (event) => {

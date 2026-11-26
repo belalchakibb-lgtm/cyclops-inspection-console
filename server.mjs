@@ -57,9 +57,12 @@ const PUBLIC_FILES = new Map([
   ['/cyclops-utsim.js', 'cyclops-utsim.js'], ['/cyclops-rtsim.js', 'cyclops-rtsim.js'],
   ['/cyclops-gl.js', 'cyclops-gl.js'], ['/cyclops-study.js', 'cyclops-study.js'], ['/cyclops-academy.js', 'cyclops-academy.js'], ['/cyclops-ndt-academy.js', 'cyclops-ndt-academy.js'], ['/cyclops-surfsim.js', 'cyclops-surfsim.js'], ['/cyclops-challenges.js', 'cyclops-challenges.js'], ['/cyclops-scenarios.js', 'cyclops-scenarios.js'], ['/cyclops-insight.js', 'cyclops-insight.js'], ['/cyclops-lab.js', 'cyclops-lab.js'], ['/cyclops-workspace.js', 'cyclops-workspace.js'], ['/cyclops-twin.js', 'cyclops-twin.js'], ['/cyclops-defects3d.js', 'cyclops-defects3d.js'], ['/cyclops-home.js', 'cyclops-home.js'], ['/cyclops-guide.js', 'cyclops-guide.js'], ['/cyclops-procourse.js', 'cyclops-procourse.js'], ['/cyclops-procourse-utrt.js', 'cyclops-procourse-utrt.js'], ['/cyclops-procourse-equip.js', 'cyclops-procourse-equip.js'], ['/cyclops-procourse-surf.js', 'cyclops-procourse-surf.js'], ['/cyclops-voice.js', 'cyclops-voice.js'], ['/cyclops-film.js', 'cyclops-film.js'], ['/cyclops-film-scenes.js', 'cyclops-film-scenes.js'], ['/cyclops-training.js', 'cyclops-training.js'], ['/cyclops-dm-data.js', 'cyclops-dm-data.js'], ['/cyclops-dm-data2.js', 'cyclops-dm-data2.js'], ['/cyclops-dmlab.js', 'cyclops-dmlab.js'], ['/cyclops-search.js', 'cyclops-search.js'], ['/guide/manifest.json', 'guide/manifest.json'],['/vendor/three.module.min.js', 'vendor/three.module.min.js'],
   ['/manifest.webmanifest', 'manifest.webmanifest'], ['/sw.js', 'sw.js'],
-  ['/icons/icon-192.png', 'icons/icon-192.png'], ['/icons/icon-512.png', 'icons/icon-512.png'], ['/icons/icon.svg', 'icons/icon.svg']
+  ['/icons/icon-192.png', 'icons/icon-192.png'], ['/icons/icon-512.png', 'icons/icon-512.png'], ['/icons/icon.svg', 'icons/icon.svg'],
+  ['/download', 'download.html'], ['/download.html', 'download.html'], ['/icons/download-qr.svg', 'icons/download-qr.svg']
 ]);
-const NO_AUTH_FILES = new Set(['login.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon.svg']);
+const NO_AUTH_FILES = new Set(['login.html', 'download.html', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon.svg', 'icons/download-qr.svg']);
+// Short public link to the newest Android app (built by GitHub Actions under the same name each time).
+const APK_URL = 'https://github.com/belalchakibb-lgtm/cyclops-inspection-console/releases/download/apk-latest/CYCLOPS-AQCS.apk';
 const mimeTypes = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json; charset=utf-8'
@@ -526,6 +529,12 @@ export async function serve(request, response) {
   if (path === '/api/login') return login(request, response);
   if (path === '/api/logout') return logout(request, response);
   if (path === '/api/health') return json(response, 200, { ok: true, provider: providerLabel, configured: Boolean(apiKey()), authEnabled: authConfigured, training: training ? training.kind : trainingProblem ? 'unreachable' : 'off' });
+
+  if (path === '/cyclops.apk') {
+    if (!['GET', 'HEAD'].includes(request.method)) return json(response, 405, { error: 'Method not allowed.' });
+    response.writeHead(302, { Location: APK_URL, 'Cache-Control': 'no-store', ...securityHeaders });
+    return response.end();
+  }
 
   const session = readSession(request);
   // video guide screenshots: only /guide/en|fr/<scene>.jpg, no other path form

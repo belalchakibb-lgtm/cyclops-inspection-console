@@ -876,6 +876,13 @@ Sauvegarde des fichiers d'origine : _backup-2026-11-03/
 - Base de connaissances : nouveau type de source « Guide d'étude ASME/API » (résumé pédagogique, édition à vérifier), aussi utilisable par l'assistant principal. Nouveau test serveur (8 tests).
 - Constat : le modèle NVIDIA actuel (llama-3.2-90b-vision) est trop lent sur l'offre gratuite pour les réponses longues (délai dépassé) ; à revoir (autre modèle ou clé Anthropic).
 
+### Page publique de téléchargement de l'application Android
+- Nouvelle page download.html, ouverte sans connexion : https://cyclopsaqcs.onrender.com/download. Gros bouton « Télécharger l'application », étapes d'installation (sources inconnues, Play Protect « Installer quand même », connexion), FR/EN selon la langue du téléphone, bouton « Partager cette page », note iPhone (ajouter à l'écran d'accueil).
+- Lien court /cyclops.apk : redirection vers la dernière version publiée sur GitHub (apk-latest), donc toujours à jour.
+- QR code (icons/download-qr.svg) vers la page de téléchargement, généré hors projet et vérifié par décodage (jsQR).
+- Page de connexion : lien « 📱 Application Android ». Le reste de l'application exige toujours la connexion.
+- Nouveau test serveur (22 tests) : page, QR et lien publics ; l'application reste fermée sans connexion.
+
 ### Recherche globale et déplacement gauche / droite en 3D
 - Nouveau fichier cyclops-search.js : bouton « 🔍 Rechercher » dans l'en-tête, raccourcis Ctrl+K et « / ». Recherche dans tout CYCLOPS (≈ 350 entrées) : pages du menu, cartes du labo de formation, 67 mécanismes RP 571, défauts de soudure 3D, cours professionnels (vidéo 3D + chaque diapositive), modules Académie CND, leçons débutant, scénarios, guide d'étude, dictionnaire, calculs, jumeaux 3D, procédures par département.
 - Recherche sans accents, tous les mots exigés, résultats groupés par rubrique, ↑ ↓ + Entrée. Chaque résultat ouvre directement le bon module (ex. « HTHA » ouvre le mécanisme § 3.36 dans le labo 3D). Si rien ne correspond : « Demander à l'IA ». FR/EN, adapté au téléphone.

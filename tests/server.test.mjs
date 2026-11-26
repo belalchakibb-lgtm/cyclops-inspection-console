@@ -81,6 +81,22 @@ test('pages require sign-in; login page and icons do not', async () => {
   assert.equal((await fetch(`${base}/icons/icon-192.png`)).status, 200);
 });
 
+test('the app download page, its QR code and the APK link are public; the app itself is not', async () => {
+  const page = await fetch(`${base}/download`, { redirect: 'manual' });
+  assert.equal(page.status, 200);
+  assert.match(page.headers.get('content-type'), /text\/html/);
+  assert.match(await page.text(), /href="\/cyclops\.apk"/);
+  const qr = await fetch(`${base}/icons/download-qr.svg`, { redirect: 'manual' });
+  assert.equal(qr.status, 200);
+  assert.match(qr.headers.get('content-type'), /image\/svg\+xml/);
+  const apk = await fetch(`${base}/cyclops.apk`, { redirect: 'manual' });
+  assert.equal(apk.status, 302);
+  assert.equal(apk.headers.get('location'), 'https://github.com/belalchakibb-lgtm/cyclops-inspection-console/releases/download/apk-latest/CYCLOPS-AQCS.apk');
+  assert.equal((await fetch(`${base}/cyclops.apk`, { method: 'POST', redirect: 'manual' })).status, 405);
+  assert.equal((await fetch(`${base}/`, { redirect: 'manual' })).status, 302); // still signed out: the app stays closed
+  assert.match(await (await fetch(`${base}/login`)).text(), /href="\/download"/);
+});
+
 test('wrong password is refused, right password opens the app', async () => {
   assert.equal((await login('tester', 'wrong-password-here')).status, 401);
   assert.equal((await login('nobody', 'a-long-test-password')).status, 401);
